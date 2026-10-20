@@ -40,6 +40,7 @@ function statOf(p) {
   } catch { return { exists: false } }
 }
 
+function buildSnapshot() {
 // ── 1. 她的作息与当前状态 ────────────────────────────────────────
 const night = readJson(path.join(DSH, 'whale-night.json'), null)
 const cfg = readJson(path.join(DSH, 'bili-whale.config.json'), {})
@@ -211,6 +212,10 @@ const snapshot = {
   events: events.slice(0, 300),
 }
 
+return snapshot
+}
+
+const snapshot = buildSnapshot()
 const json = JSON.stringify(snapshot, null, 2)
 
 // ── 生成单文件 HTML（数据内联）──────────────────────────────────
@@ -258,14 +263,23 @@ function buildStandalone(snap) {
   return html
 }
 
+function writeSnapshot(snap) {
+  fs.mkdirSync(path.dirname(OUT), { recursive: true })
+  fs.writeFileSync(OUT, JSON.stringify(snap, null, 2), 'utf8')
+  const standalone = buildStandalone(snap)
+  if (!standalone) return null
+  const single = path.join(path.dirname(OUT), '鲸檬面板.html')
+  fs.writeFileSync(single, standalone, 'utf8')
+  fs.chmodSync(single, 0o644)
+  return single
+}
+
 const watchSec = Number(opt('watch', 0))
 if (argv.includes('--watch') || watchSec > 0) {
   const every = Math.max(5, watchSec || 30) * 1000
   const write = () => {
     try {
-      fs.mkdirSync(path.dirname(OUT), { recursive: true })
-      const fresh = JSON.stringify(buildSnapshot(), null, 2)
-      fs.writeFileSync(OUT, fresh, 'utf8')
+      writeSnapshot(buildSnapshot())
       console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] 已刷新 ${OUT}`)
     } catch (e) {
       console.error('刷新失败：' + e.message)
@@ -274,23 +288,10 @@ if (argv.includes('--watch') || watchSec > 0) {
   write()
   setInterval(write, every)
 } else if (OUT) {
-  fs.mkdirSync(path.dirname(OUT), { recursive: true })
-  fs.writeFileSync(OUT, json, 'utf8')
-  console.log(`已写入 ${OUT}（${Buffer.byteLength(json)} bytes · ${events.length} 条事件）`)
+  const single = writeSnapshot(snapshot)
+  console.log(`已写入 ${OUT}（${Buffer.byteLength(json)} bytes · ${snapshot.stats.totalEvents} 条事件）`)
 
-  // 同时产出一个双击就能开的单文件
-  const standalone = buildStandalone(snapshot)
-  if (standalone) {
-    const single = path.join(path.dirname(OUT), '鲸檬面板.html')
-    fs.writeFileSync(single, standalone, 'utf8')
-    fs.chmodSync(single, 0o644)
-    console.log(`已生成单文件版 ${single}（双击即可打开）`)
-  }
+  if (single) console.log(`已生成单文件版 ${single}（双击即可打开）`)
 } else {
   console.log(json)
-}
-
-// --watch 时重新采集（复用同一套逻辑）
-function buildSnapshot() {
-  return JSON.parse(JSON.stringify(snapshot, null, 2))
 }

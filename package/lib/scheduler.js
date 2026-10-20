@@ -20,6 +20,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
+import { resolveNodeExecutable } from './node-runtime.js'
 // 收件箱读取复用工具链的实现（避免在插件里再抄一份 B站 接口 ✓）
 import { pullFeed, makeHeaders } from '../tools/lib/msgfeed.mjs'
 
@@ -99,8 +100,10 @@ function diaryPushLines() {
        "   （2026-10-18 主人定：推**日记内容**，不只是流水账 ✓ 它读设置页「消息推送」的配置）"]
 }
 
-function wakePrompt(st) {
+function wakePrompt(st, identity, biliMjs) {
   return [
+    identity,
+    `工具入口：node ${JSON.stringify(biliMjs)} <命令>。下文 bili.mjs 均指此绝对路径。`,
     `【生物钟】你醒了 —— ${st.atText ?? ''}${st.window ? `（窗口 ${st.window}${st.withinWindow ? ' · ' + st.withinWindow : ''}）` : ''}。`,
     '',
     // 2026-10-20：先告诉她"冷了几天"，再给流程 —— 心情在前，任务在后 ✓
@@ -111,7 +114,7 @@ function wakePrompt(st) {
       } catch {}
       return [
         "",
-        "【还没跑启动测试】先提醒主人跑一次：`node ~/.dsh/plugins/dsh-bili-whale/tools/bili.mjs selftest`",
+        `【还没跑启动测试】先提醒主人跑一次：\`node ${JSON.stringify(biliMjs)} selftest\``,
         "  并告诉他两件事：① 你的会话在 工作区 → 未分组 里（不点开看不见）② 要给那个会话「完全访问」权限",
         "",
       ]
@@ -136,6 +139,7 @@ function wakePrompt(st) {
     '   · via=comment：comment --share --auto --reason … --score … --rank 1（原功能 ✓）',
     '6) 写两本日记（散文体 + 表格 ✓ 私人那本写「偏好校准」）',
     // ⭐ 2026-10-18 主人定：每轮流程**最后**扫一遍"有没有没回的评论" → 有就**一起**推给我 ✓
+    '6.5) 写一篇 ≤500 字的潜水日志动态：先 `daily-diary material`，自行写作后 `daily-diary draft --file <稿件路径>`；需要审核，未经主人批准不得 approve/publish。',
     '7) ⭐ `comment-digest --hours 24` —— **每轮最后都要扫**：有没回的评论就**一起**推给我（不是一条条报 ✗）',
     '   回不回、怎么回：主人 / 其他人 → 见「倾听」的分两侧规则 ✓',
     '7.5) ⭐ `quota react --auto --hours 48` —— 扫一遍主人有没有表态（**点赞也算** ✓ 能看到是哪条评论 ✓）',
@@ -175,16 +179,7 @@ export function startScheduler(ctx, opts) {
   //   用主程序跑脚本时，B站 的 `gethistory` 返回**空数组**（nav 之类却正常 ✗）→ 直播间永远"听不见" ✗
   //   实测对照：真 node.exe 5 秒命中；主程序 25 秒 0 行 ✗
   //   → 必须找到 **真正的 node.exe**（DSH 自带的运行时）✓
-  function findNode() {
-    const cands = [
-      process.env.DSH_NODE,
-      path.join(dshHome, 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'node', 'bin', 'node.exe'),
-      path.join(os.homedir(), '.dsh', 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'node', 'bin', 'node.exe'),
-    ]
-    for (const c of cands) { try { if (c && fs.existsSync(c)) return c } catch {} }
-    return process.execPath   // 兜底
-  }
-  const NODE_EXE = findNode()
+  const NODE_EXE = resolveNodeExecutable()
   const NODE_ENV = { ...process.env }   // 真 node 不需要 ELECTRON_RUN_AS_NODE ✓
 
   const runBili = (args) => new Promise((resolve) => {
@@ -272,7 +267,7 @@ export function startScheduler(ctx, opts) {
             requestId: `bili-whale-${Date.now()}`,
             sessionId,
             mode: 'queue',
-            content: [{ type: 'text', text: wakePrompt(st) }],
+            content: [{ type: 'text', text: wakePrompt(st, personaLine(), biliMjs) }],
           },
           new AbortController().signal,
         )
@@ -564,15 +559,16 @@ export function startScheduler(ctx, opts) {
     log(`[bili-whale] 直播间监听已挂上（房间 ${room} · ${String(L.liveScope ?? 'owner') === 'owner' ? '只回主人' : '只回@她的'}）✓`)
   }
 
+  const startupTimers = []
+  const startup = (fn, delay) => startupTimers.push(setTimeout(() => { fn().catch(() => {}) }, delay))
   const timer = setInterval(() => { tick().catch(() => {}) }, TICK_MS)
-  setTimeout(() => { tick().catch(() => {}) }, 8000)          // 启动 8 秒后先跑一次
-  // 30 秒看一眼"到点没"（2026-10-18 测试期曾改 2.5 秒 ✓ 已还原 ✓），真正间隔由配置定 ✓
+  startup(tick, 8000)
   const timer2 = setInterval(() => { listenTick().catch(() => {}) }, 30_000)
-  setTimeout(() => { listenTick().catch(() => {}) }, 15_000)
-  const timerDm = setInterval(() => { dmTick().catch(() => {}) }, 20_000)   // 2026-10-19: 60s -> 20s, 私信要像聊天; 每次只是一个 get_sessions 请求 很轻
-  setTimeout(() => { dmTick().catch(() => {}) }, 25_000)
-  const timer3 = setInterval(() => { liveTick().catch(() => {}) }, 60_000)     // 直播间：挂了就一直跑，断了自动重挂 ✓
-  setTimeout(() => { liveTick().catch(() => {}) }, 20_000)
+  startup(listenTick, 15_000)
+  const timerDm = setInterval(() => { dmTick().catch(() => {}) }, 20_000)
+  startup(dmTick, 25_000)
+  const timer3 = setInterval(() => { liveTick().catch(() => {}) }, 60_000)
+  startup(liveTick, 20_000)
   log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看都挂上了 ✓`)
 
   return {
@@ -593,7 +589,7 @@ export function startScheduler(ctx, opts) {
       // ⭐ 直播间是**单独开关**：保存设置就立刻生效（点开就跑 ✓ 关掉就停 ✓），不等下一轮定时器
       liveTick().catch(() => {})
     },
-    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timer3); try { liveProc?.kill() } catch {} },
+    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timerDm); clearInterval(timer3); startupTimers.forEach(clearTimeout); liveStopping = true; try { liveProc?.kill() } catch {} },
     tick,
     listenTick,
     liveTick,

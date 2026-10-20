@@ -100,7 +100,7 @@ dsh plugin --profile desktop add "link:/path/to/dsh-whale-jingmeng/package"
    ⚠️ 别用 `document.cookie`，`SESSDATA` 是 HttpOnly，读不到
 2. **填她的 mid 和你的 mid**
 3. **点依赖体检** —— 真跑一次请求验证登录态
-4. **给她那个会话完全访问权限** —— 会话在「工作区 → 未分组」里
+4. **给自动运行会话配置所需权限** —— 自动创建的鲸檬会话可能在「未分组」，与项目开发会话分开；开发会话归属项目工作区。
 
 ---
 
@@ -160,3 +160,22 @@ node tools/commands/daily-diary.mjs publish           # 发 B 站
 MIT。上游版权归 ALTERSSSS，本项目新增部分归本项目贡献者，详见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。
 
 第三方与免责见 NOTICE。**用你自己的账号做事，后果自负。**
+
+
+## 本地验收与维护
+
+从项目根目录执行 `node package/tests/regression.mjs`。测试在临时目录中运行，发布器与网络均使用替身，不会真实发送评论、动态或硬币。
+
+生成可直接打开的运营面板：
+
+```bash
+node package/tools/collect.mjs
+# 持续采集：JSON 与单文件 HTML 每轮一起更新
+node package/tools/collect.mjs --watch 30
+```
+
+打开 `package/dashboard/鲸檬面板.html`，点击刷新或重新打开可读最新采集数据。数据时间表示采集时间；计划存在不代表已完成一次自动唤醒。
+
+日记先 `daily-diary draft` 入队，再由使用者审核；`publish` 仅处理已批准内容。云文档与消息推送使用本机配置 `notify.diaryDocToken`、`notify.ownerOpenId`，或相应环境变量，仓库不包含个人收件人及文档绑定。互动额度可用 `interact.dailyLimit` 配置，未配置时回退现有 `quota.daily`（默认 2 次/日）；三连算一次，部分成功也记账。
+
+插件已安装但设置未变化时，应保存当前任务后完整退出并重新打开 Desktop，以加载 bundle 与宿主模块。Desktop 托管 profile 的安装入口以当前版本支持的插件管理方式为准；若 CLI 提示该 profile 由 Electron 独占，请使用桌面端管理，勿另开 CLI 实例同时写入聊天。

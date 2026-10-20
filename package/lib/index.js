@@ -20,17 +20,8 @@ import { execFile } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { startScheduler } from './scheduler.js'
 
-// 2026-10-19：真 node 路径（Electron 的 process.execPath 是 Harness.exe ✗ 跑不了 node 脚本）
-const NODE_EXE = (() => {
-  const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-  const cands = [
-    process.env.DSH_NODE,
-    path.join(dshHome, 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'node', 'bin', 'node.exe'),
-    path.join(os.homedir(), '.dsh', 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'node', 'bin', 'node.exe'),
-  ]
-  for (const c of cands) { try { if (c && fs.existsSync(c)) return c } catch {} }
-  return process.execPath
-})()
+import { resolveNodeExecutable } from './node-runtime.js'
+const NODE_EXE = resolveNodeExecutable()
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PAGE = path.join(HERE, 'settings.html')
@@ -196,7 +187,7 @@ function isLoopbackReq(req) {
       //   现在两种都收：{ config: {...} } 或直接 {...}
       const incoming = (body && typeof body.config === 'object' && body.config) || body || {}
       // 顶层白名单：只合并认识的键（防止被塞任意字段 ✓）
-      const KNOWN = new Set(['persona', 'preferences', 'notify', 'aliases', 'owner', 'self', 'quota', 'share', 'listen', 'night', 'toolsPath'])
+      const KNOWN = new Set(['persona', 'preferences', 'notify', 'aliases', 'owner', 'self', 'quota', 'share', 'listen', 'night', 'diary', 'interact', 'toolsPath'])
       const filtered = {}
       for (const [k, v] of Object.entries(incoming)) if (KNOWN.has(k)) filtered[k] = v
       const next = merge(cur, filtered)
@@ -307,33 +298,46 @@ function isLoopbackReq(req) {
         json(res, 200, { ok: !err, out: String(stdout ?? '').slice(0, 300) })
       })
     })
+    const approving = new Set()
     route('exact', '/dsh-bili/api/pending/approve', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
       if (req.method !== 'POST') { json(res, 405, { ok: false }); return }
       const b = JSON.parse(await readBody(req) || '{}')
       const id = String(b.id ?? '')
       if (!id) { json(res, 400, { ok: false, error: '需要 id' }); return }
-      const bili = resolveBiliMjs()
-      // ① 从队列取出（取不到 = 已经发过/删过 ✓）
-      execFile(NODE_EXE, [bili, 'reply-draft', 'take', id], { timeout: 20000, windowsHide: true }, (err, stdout) => {
+      if (approving.has(id)) { json(res, 409, { ok: false, error: '这条回复正在发送，请等待结果' }); return }
+      approving.add(id)
+      const run = (args) => new Promise((resolve) => {
+        execFile(NODE_EXE, [resolveBiliMjs(), ...args], { timeout: 120000, windowsHide: true }, (err, stdout, stderr) => {
+          resolve({ err, out: String(stdout ?? ''), stderr: String(stderr ?? '') })
+        })
+      })
+      try {
+        // 发送前只读；失败保留草稿，成功后才出队，避免网络/配置异常吞稿。
+        const found = await run(['reply-draft', 'show', id, '--json'])
         let item = null
-        try { item = JSON.parse(String(stdout ?? '')) } catch {}
-        if (!item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
-        // ② 真发（--auto → 自动报备 ✓；--once-per-person → 判重 ✓）
+        try { item = JSON.parse(found.out) } catch {}
+        if (found.err || !item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
+        const cfg = readConfig()
         const args = ['comment', '--oid', item.oid, '--root', item.root, '--parent', item.parent,
           '--message', item.message, '--auto', ...(cfg.listen?.oncePerPerson !== false ? ['--once-per-person'] : []), '--go']
         if (item.bvid) args.push('--bvid', item.bvid)
-        execFile(NODE_EXE, [bili, ...args], { timeout: 120000, windowsHide: true }, (e2, out2, err2) => {
-          const text = String(out2 ?? '')
-          const ok = !e2 && /code=0/.test(text)
-          const rpid = (text.match(/rpid=(\d+)/) ?? [])[1] ?? null
-          try {
-            fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
-              JSON.stringify({ at: new Date().toISOString(), kind: ok ? 'reply-sent' : 'reply-failed', target: item.who || item.parent, note: `${ok ? '主人批准并发出' : '发送失败'} · ${String(item.message).slice(0, 60)}` }) + '\n')
-          } catch {}
-          json(res, 200, { ok, rpid, out: text.slice(-600), err: String(err2 ?? '').slice(0, 400) })
-        })
-      })
+        const sent = await run(args)
+        const ok = !sent.err && /已发布，评论 rpid=\d+/.test(sent.out)
+        const rpid = (sent.out.match(/rpid=(\d+)/) ?? [])[1] ?? null
+        let queueWarning = null
+        if (ok) {
+          const removed = await run(['reply-draft', 'drop', id])
+          if (removed.err) queueWarning = '回复已发出，但清理草稿失败；请勿再次发送这条。'
+        }
+        try {
+          fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
+            JSON.stringify({ at: new Date().toISOString(), kind: ok ? 'reply-sent' : 'reply-failed', target: item.who || item.parent, note: `${ok ? '主人批准并发出' : '发送失败，草稿保留'} · ${String(item.message).slice(0, 60)}` }) + '\n')
+        } catch {}
+        json(res, 200, { ok, rpid, out: sent.out.slice(-600), err: sent.stderr.slice(0, 400), ...(queueWarning ? { warning: queueWarning } : {}) })
+      } finally {
+        approving.delete(id)
+      }
     })
 
     // 「发条测试」：真的跑一次 notify.mjs --test，把结果原样返回（配错了当场能看见 ✓）

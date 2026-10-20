@@ -120,6 +120,20 @@ if (cmd === 'check') {
     console.log(`   修法：检查 ${FILE}；确认无误后可删掉它（⚠️ 删 = 当天额度从 0 重算）`)
     process.exit(2)
   }
+  // 视频互动单独记额度，沿用现有 daily 预算；三连记作一次，部分成功也算。
+  const interactionTypes = new Set(['like', 'coin', 'fav', 'triple'])
+  if (interactionTypes.has(opt.type)) {
+    const interaction = config().interact ?? {}
+    const configured = Number(interaction.dailyLimit ?? q.daily)
+    const limit = Number.isFinite(configured) ? Math.max(0, Math.floor(configured)) : 2
+    const used = q.log.filter(x => dayOf(x.at) === today() && interactionTypes.has(x.type)).length
+    if (interaction.enabled === false || used >= limit) {
+      console.log(`✗ 视频互动已关闭或额度用完（${used}/${limit}）`)
+      process.exit(2)
+    }
+    console.log(`✓ 视频互动额度内（${used}/${limit}）`)
+    process.exit(0)
+  }
   const auto = !!opt.auto
   const usedAuto = q.log.filter((x) => dayOf(x.at) === today() && x.auto && !x.share).length
   const target = typeof opt.target === 'string' ? opt.target : ''

@@ -30,3 +30,7 @@ shots/
 .vscode/
 .idea/
 .dsh-ops-*.lock
+
+# 本机面板快照包含个人日记与运行状态，只在本地生成
+package/dashboard/data.json
+package/dashboard/鲸檬面板.html

@@ -23,8 +23,9 @@ const DIARY = path.join(HOME, '.dsh', 'whale-diary.md')
 const STATE = path.join(HOME, '.dsh', 'whale-diary-sync.json')
 const LOG = path.join(HOME, '.dsh', 'whale-log.jsonl')
 
-// 飞书文档坐标 —— 改文档就改这两个常量
-const DOC_TOKEN = '__DIARY_DOC_TOKEN__'
+// 文档绑定只保存在本机配置或环境变量。
+const CFG_FILE = process.env.BILI_WHALE_CONFIG || path.join(process.env.DSH_HOME || path.join(HOME, '.dsh'), 'bili-whale.config.json')
+const DOC_TOKEN = process.env.JINGMENG_DIARY_DOC_TOKEN || readJson(CFG_FILE, {}).notify?.diaryDocToken || ''
 const DOC_URL = 'https://my.feishu.cn/docx/' + DOC_TOKEN
 
 const argv = process.argv.slice(2)
@@ -129,6 +130,8 @@ if (DRY) {
   console.log('=== 结束（--dry，没有真发）===')
   process.exit(0)
 }
+
+if (!DOC_TOKEN) { console.error('未配置云文档：设置 notify.diaryDocToken 或 JINGMENG_DIARY_DOC_TOKEN'); process.exit(2) }
 
 // ── 4. 追加到飞书文档 ──────────────────────────────────────────────
 // ⚠️ lark-cli 的 --content @file 只认「当前工作目录 / /tmp / ~/files」三个根，

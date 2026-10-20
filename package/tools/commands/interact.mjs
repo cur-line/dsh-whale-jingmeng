@@ -46,6 +46,17 @@ const bvid = argv[1]
 const DRY = argv.includes('--dry')
 const NO_GATE = argv.includes('--no-gate')
 const UNDO = argv.includes('--undo')
+let recorded = false
+function trackSuccess(action, result) {
+  if (!result.ok || DRY) return result
+  // 三连第一步成功就记账，后续风控/退出也不会漏掉已完成的动作。
+  if (!recorded && !NO_GATE) {
+    record({ type: cmd, target: bvid, note: `${cmd}: ${action} 已成功`, auto: true })
+    recorded = true
+  }
+  logEvent('interact', { target: bvid, note: `${action}${UNDO ? '（撤销）' : ''}`, meta: { action, command: cmd, undo: UNDO } })
+  return result
+}
 
 function opt(name, def) {
   const i = argv.indexOf('--' + name)
@@ -215,6 +226,8 @@ async function doStatus() {
 
 // ── 主流程 ──────────────────────────────────────────────────────
 async function main() {
+  if (!['like', 'coin', 'fav', 'triple', 'status'].includes(cmd)) die(`未知命令：${cmd}`)
+  if ((cmd === 'fav' || cmd === 'triple') && !opt('folder', DEFAULT_FOLDER)) die('收藏/三连需要收藏夹：配置 interact.favFolderId 或传 --folder ID')
   // 限额闸：互动也算对外动作，默认要过
   if (!NO_GATE && !DRY && cmd !== 'status') {
     const pass = gate({ type: cmd === 'triple' ? 'triple' : cmd, target: bvid, auto: true })
@@ -225,19 +238,24 @@ async function main() {
   }
 
   let result
-  if (cmd === 'like') result = await doLike()
-  else if (cmd === 'coin') result = await doCoin()
-  else if (cmd === 'fav') result = await doFav()
+  if (cmd === 'like') result = trackSuccess('like', await doLike())
+  else if (cmd === 'coin') result = trackSuccess('coin', await doCoin())
+  else if (cmd === 'fav') result = trackSuccess('fav', await doFav())
   else if (cmd === 'status') result = await doStatus()
   else if (cmd === 'triple') {
     console.log(`[三连] ${bvid}`)
-    const a = await doLike()
-    await new Promise((r) => setTimeout(r, 1200)) // 三个动作别挤在同一毫秒，像人才怪
-    const b = await doCoin()
-    await new Promise((r) => setTimeout(r, 1200))
-    // 三连的收藏要收藏夹；没有就用她默认那份
-    const c = await doFav().catch((e) => ({ ok: false, err: String(e.message) }))
-    result = { ok: a.ok && b.ok && c.ok, parts: { like: a, coin: b, fav: c } }
+    const a = trackSuccess('like', await doLike())
+    let b = { ok: false, skipped: true }
+    let c = { ok: false, skipped: true }
+    if (a.ok) {
+      if (!DRY) await new Promise(r => setTimeout(r, 1200))
+      b = trackSuccess('coin', await doCoin())
+    }
+    if (b.ok) {
+      if (!DRY) await new Promise(r => setTimeout(r, 1200))
+      c = trackSuccess('fav', await doFav())
+    }
+    result = { ok: a.ok && b.ok && c.ok, dry: DRY, parts: { like: a, coin: b, fav: c } }
     console.log(`\n三连结果：赞 ${a.ok ? '✓' : '✗'} · 币 ${b.ok ? '✓' : '✗'} · 藏 ${c.ok ? '✓' : '✗'}`)
   } else {
     die(`未知命令：${cmd}`)
@@ -247,19 +265,6 @@ async function main() {
   if (result?.dry) console.log('（--dry：只预演，没有真发）')
   else if (result?.ok) {
     console.log('✅ 成功')
-    try {
-      logEvent('interact', {
-        target: bvid,
-        note: cmd === 'status' ? '查状态' : `${cmd}${UNDO ? '（撤销）' : ''}`,
-        meta: { action: cmd, undo: UNDO },
-      })
-    } catch {}
-    // 记账：成功才记，失败不占额度
-    if (!DRY && cmd !== 'status' && !NO_GATE) {
-      try {
-        record({ type: cmd === 'triple' ? 'triple' : cmd, target: bvid, note: cmd, auto: true })
-      } catch { /* 记账失败不影响结果 */ }
-    }
   } else {
     console.error('❌ 没成功')
     process.exit(1)

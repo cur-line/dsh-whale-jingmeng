@@ -22,28 +22,22 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { logEvent } from '../lib/event-log.mjs'
 
 const HOME = process.env.HOME || os.homedir()
-const STATE_DIR = path.join(HOME, '.dsh')
+const STATE_DIR = process.env.DSH_HOME || path.join(HOME, '.dsh')
+const CFG_FILE = process.env.BILI_WHALE_CONFIG || path.join(STATE_DIR, 'bili-whale.config.json')
+let cfg = {}
+try { cfg = JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')) } catch {}
 const QUEUE = path.join(STATE_DIR, 'jingmeng-diary-queue.json')
 const LOCAL_DIARY = path.join(STATE_DIR, 'whale-diary.md')
-const BILI_BASE = path.join(path.dirname(new URL(import.meta.url).pathname), '..')
+const BILI_BASE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const DOC_TOKEN = '__DIARY_DOC_TOKEN__'
-const DOC_URL = `https://my.feishu.cn/docx/${DOC_TOKEN}`
+const DOC_TOKEN = process.env.JINGMENG_DIARY_DOC_TOKEN || cfg.notify?.diaryDocToken || ''
+const DOC_URL = DOC_TOKEN ? `https://my.feishu.cn/docx/${DOC_TOKEN}` : '未配置云文档（notify.diaryDocToken）'
 // 收件人 open_id 从配置读，不写死在源码里（个人标识不该进公开仓库）
-const OWNER_OPEN_ID = (() => {
-  if (process.env.DEEPREAD_OWNER_OPEN_ID) return process.env.DEEPREAD_OWNER_OPEN_ID
-  try {
-    const c = JSON.parse(fs.readFileSync(path.join(HOME, '.dsh', 'bili-whale.config.json'), 'utf8'))
-    return String(c?.notify?.ownerOpenId ?? '')
-  } catch { return '' }
-})()
-if (!OWNER_OPEN_ID) {
-  console.error('缺少飞书 open_id：在 ~/.dsh/bili-whale.config.json 的 notify.ownerOpenId 填一个，或设 DEEPREAD_OWNER_OPEN_ID。')
-  process.exit(2)
-}
+const OWNER_OPEN_ID = process.env.DEEPREAD_OWNER_OPEN_ID || String(cfg.notify?.ownerOpenId ?? '')
 
 const MAX_CHARS = 500
 
@@ -125,30 +119,38 @@ function cleanForDynamic(raw) {
 
 // ── 飞书 ────────────────────────────────────────────────────────
 function appendToFeishu(md) {
-  const tmp = '/tmp/jingmeng-diary-append.md'
-  fs.writeFileSync(tmp, md, 'utf8')
-  const r = execFileSync('lark-cli', [
+  if (!DOC_TOKEN) throw new Error('未配置云文档：请设置 notify.diaryDocToken 或 JINGMENG_DIARY_DOC_TOKEN')
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jingmeng-diary-'))
+  const file = path.join(tmp, 'append.md')
+  fs.writeFileSync(file, md, 'utf8')
+  try {
+    const r = execFileSync('lark-cli', [
     'docs', '+update', '--doc', DOC_TOKEN,
-    '--command', 'append', '--content', '@' + tmp,
+    '--command', 'append', '--content', '@' + file,
     '--doc-format', 'markdown', '--as', 'user',
   ], { encoding: 'utf8', timeout: 120000 })
   try { return JSON.parse(r).ok === true } catch { return /"ok":\s*true/.test(r) }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 }
 
 function pushToFeishuDM(text) {
-  const tmp = '/tmp/jingmeng-diary-dm.md'
-  fs.writeFileSync(tmp, text, 'utf8')
-  const r = execFileSync('lark-cli', [
+  if (!OWNER_OPEN_ID) throw new Error('缺少飞书 open_id：请设置 notify.ownerOpenId 或 DEEPREAD_OWNER_OPEN_ID')
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jingmeng-diary-'))
+  const file = path.join(tmp, 'message.md')
+  fs.writeFileSync(file, text, 'utf8')
+  try {
+    const r = execFileSync('lark-cli', [
     'im', '+messages-send', '--user-id', OWNER_OPEN_ID,
-    '--text', '@' + tmp, '--as', 'user',
+    '--text', '@' + file, '--as', 'user',
   ], { encoding: 'utf8', timeout: 60000 })
   try { return JSON.parse(r).ok === true } catch { return /"ok":\s*true/.test(r) }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 }
 
 // ── B 站发布 ────────────────────────────────────────────────────
 function publishToBilibili(text) {
   // vendor/ 只在开发期存在；装成插件后 bili.mjs 就在包内 tools/ 下
-  const biliMjs = path.join(BILI_BASE, 'tools', 'bili.mjs')
+  const biliMjs = path.join(BILI_BASE, 'bili.mjs')
   const r = execFileSync(process.execPath, [biliMjs, 'dynamic', 'post',
     '--text', text, '--go', '--auto',
   ], { encoding: 'utf8', timeout: 120000 })
