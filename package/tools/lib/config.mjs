@@ -40,6 +40,15 @@ export const DEFAULTS = {
   listen: { comment: true, commentIntervalSec: 300, scope: 'both', oncePerPerson: false, allDay: false, dm: false, live: false, liveRoom: '', liveScope: 'owner' },
   // 作息：windows[] = 每天允许醒来的时段（每个窗口 = 一次机会）；maxWakesPerDay 缺省 = 窗口数（硬上限 3）
   night: { windows: [{ start: '20:00', end: '24:00', wakes: 1 }], skipChance: 0.3, maxVideos: 5 },
+  // 小红书（2026-10-20 加）：与 B 站并行的第二条腿。
+  // 关掉很直接：enabled:false → 调度器整段不提；但命令层仍可手动跑（方便排查）
+  xhs: {
+    enabled: true,
+    baseUrl: 'http://127.0.0.1:18060',
+    dailyLimit: 2,               // 点赞+收藏+评论 合计每天上限（比 B 站保守：新地方先少动手）
+    publishNeedsApproval: true,  // 发笔记必须先给人看 —— 默认死守
+    readPerWake: 2,              // 每轮最多深读几条
+  },
 }
 
 const merge = (base, over) => {

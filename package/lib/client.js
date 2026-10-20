@@ -20,12 +20,15 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
     const React = require("react");
-    const { createElement: h, useCallback, useEffect, useState } = React;
+    const { createElement: h, useCallback, useEffect, useRef, useState } = React;
 
     const API = "/dsh-bili/api";
     const CSS_TAG = "dsh-whale-jingmeng/section.css";
     const CSS = [
-      ".blw{max-width:760px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:6px}",
+      // 2026-10-20：原 760px 太窄，控制台侧栏一占主区只剩 400px。
+      // 控制台视图单独放开到 980，设置视图仍保持 780（表单太宽反而难读）。
+      ".blw{max-width:780px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:6px}",
+      ".blw.blw-wide{max-width:none;width:100%}",
       ".blw-title{margin:0;font-size:16px;font-weight:500;line-height:24px}",
       ".blw-intro{color:var(--dsw-alias-label-tertiary);margin:0 0 4px;font-size:13px;line-height:20px}",
       ".blw-group{margin-top:14px;font-size:13px;font-weight:600;line-height:20px}",
@@ -46,6 +49,400 @@ window.__ModuleLoader__.load({
       ".blw-err{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px;margin-top:8px}",
       ".blw-badge{display:inline-block;font-size:11px;line-height:16px;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.14);color:var(--dsw-alias-label-secondary);margin-left:6px}",
       ".blw-cookie{display:flex;flex-direction:column;gap:8px;min-width:250px}",
+
+      /* ── 顶部导航 ── */
+      ".blw-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 0 14px;border-bottom:.5px solid var(--dsw-alias-border-l1);margin-bottom:4px}",
+      ".blw-nav-brand{display:flex;align-items:center;gap:8px}",
+      ".blw-nav-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary);box-shadow:0 0 0 3px rgba(63,185,80,.15)}",
+      ".blw-nav-name{font-size:15px;font-weight:600;letter-spacing:.02em}",
+      ".blw-nav-tabs{display:flex;gap:2px;background:var(--dsw-alias-bg-layer-2);padding:2px;border-radius:8px}",
+      ".blw-navtab{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:12.5px;padding:5px 16px;border-radius:6px;cursor:pointer;transition:.15s;font-family:inherit}",
+      ".blw-navtab:hover{color:var(--dsw-alias-label-primary)}",
+      ".blw-navtab.on{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}",
+
+      /* ── 状态面板 ── */
+      ".bwp{display:flex;flex-direction:column;gap:16px;padding-top:6px}",
+      ".bwp-loading{padding:48px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:13px}",
+      ".bwp-err{color:var(--dsw-alias-state-error-primary);font-size:12.5px;line-height:1.7;padding:14px;background:rgba(248,81,73,.08);border-radius:8px}",
+      ".bwp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}",
+      ".bwp-title{font-size:17px;font-weight:650;letter-spacing:-.01em}",
+      ".bwp-sub{font-size:12px;color:var(--dsw-alias-label-tertiary);margin-top:4px;font-family:ui-monospace,monospace}",
+      ".bwp-actions{display:flex;gap:8px;flex-wrap:wrap}",
+
+      /* 状态卡 */
+      ".bwp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}",
+      "@media(max-width:760px){.bwp-cards{grid-template-columns:repeat(2,1fr)}}",
+      ".bwp-card{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:13px 15px;position:relative;overflow:hidden}",
+      ".bwp-card::before{content:\"\";position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--dsw-alias-brand-primary);opacity:.6}",
+      ".bwp-card.t-warn::before{background:var(--dsw-alias-state-warn-primary)}",
+      ".bwp-card.t-ok::before{background:var(--dsw-alias-state-success-primary)}",
+      ".bwp-card-k{font-size:11px;color:var(--dsw-alias-label-tertiary);letter-spacing:.05em;text-transform:uppercase;font-weight:600}",
+      ".bwp-card-v{font-size:19px;font-weight:680;margin-top:6px;line-height:1.25;font-variant-numeric:tabular-nums}",
+      ".bwp-card-n{font-size:11.5px;color:var(--dsw-alias-label-tertiary);margin-top:4px}",
+
+      /* 页签 */
+      ".bwp-tabs{display:flex;gap:2px;border-bottom:.5px solid var(--dsw-alias-border-l1)}",
+      ".bwp-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary);font-size:12.5px;padding:9px 14px;cursor:pointer;font-family:inherit;transition:.15s;margin-bottom:-.5px}",
+      ".bwp-tab:hover{color:var(--dsw-alias-label-primary)}",
+      ".bwp-tab.on{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:600}",
+
+      /* 时间线 */
+      ".bwp-timeline{display:flex;flex-direction:column;max-height:420px;overflow-y:auto;padding-right:4px}",
+      ".bwp-ev{display:flex;align-items:baseline;gap:9px;padding:7px 8px;border-radius:6px;font-size:12.5px;line-height:1.6;flex-wrap:wrap}",
+      ".bwp-ev:hover{background:rgba(127,127,127,.06)}",
+      ".bwp-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;transform:translateY(-1px)}",
+      ".bwp-time{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;font-variant-numeric:tabular-nums}",
+      ".bwp-kind{font-size:11.5px;font-weight:600;flex:0 0 auto;min-width:52px}",
+      ".bwp-text{flex:1;min-width:180px;color:var(--dsw-alias-label-secondary)}",
+      ".bwp-tag{font-family:ui-monospace,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary);background:rgba(127,127,127,.1);padding:1px 6px;border-radius:4px}",
+      ".bwp-empty{padding:36px 20px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:13px;border:.5px dashed var(--dsw-alias-border-l1);border-radius:10px}",
+
+      /* 日记卡 */
+      ".bwp-diary{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:14px 16px;margin-bottom:10px}",
+      ".bwp-diary-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap}",
+      ".bwp-st{font-size:11px;font-weight:650;padding:2px 9px;border-radius:999px}",
+      ".bwp-st.s-pending{background:rgba(227,179,65,.15);color:var(--dsw-alias-state-warn-primary)}",
+      ".bwp-st.s-approved{background:rgba(63,199,245,.15);color:var(--dsw-alias-brand-primary)}",
+      ".bwp-st.s-published{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
+      ".bwp-st.s-rejected{background:rgba(248,81,73,.13);color:var(--dsw-alias-state-error-primary)}",
+      ".bwp-meta{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,monospace}",
+      ".bwp-link{font-size:11.5px;color:var(--dsw-alias-brand-primary);text-decoration:none}",
+      ".bwp-link:hover{text-decoration:underline}",
+      ".bwp-diary-body{font-size:13px;line-height:1.85;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;max-height:200px;overflow-y:auto}",
+
+      /* 自检 */
+      ".bwp-checks{display:flex;flex-direction:column}",
+      ".bwp-check{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:12.5px}",
+      ".bwp-check:last-child{border-bottom:none}",
+      ".bwp-check-ic{width:16px;flex:0 0 auto;text-align:center;font-weight:700}",
+      ".bwp-check.ok .bwp-check-ic{color:var(--dsw-alias-state-success-primary)}",
+      ".bwp-check.no .bwp-check-ic{color:var(--dsw-alias-state-warn-primary)}",
+      ".bwp-check-nm{flex:0 0 auto;min-width:92px;color:var(--dsw-alias-label-secondary)}",
+      ".bwp-check-dt{flex:1;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,monospace;font-size:11.5px}",
+
+      /* 表格 */
+      ".bwp-table{width:100%;border-collapse:collapse;font-size:12.5px}",
+      ".bwp-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--dsw-alias-label-tertiary);font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-bottom:.5px solid var(--dsw-alias-border-l1)}",
+      ".bwp-table td{padding:8px 10px;border-bottom:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);vertical-align:top}",
+      ".bwp-table td.mono{font-family:ui-monospace,monospace;font-size:11.5px}",
+      ".bwp-table td.small{font-size:11.5px;line-height:1.65}",
+      ".bwp-table tr:last-child td{border-bottom:none}",
+
+      /* 想说没说 */
+      ".bwp-wants{margin-top:14px;padding:14px 16px;background:var(--dsw-alias-bg-layer-2);border-radius:10px}",
+      ".bwp-wants-t{font-size:11px;font-weight:650;color:var(--dsw-alias-label-tertiary);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}",
+      ".bwp-want{font-size:12.5px;line-height:1.75;color:var(--dsw-alias-label-secondary);margin-bottom:5px}",
+      /* ═══ 鲸檬控制台（2026-10-20 重做）═══ */
+      // 2026-10-20 重做：侧栏三种形态 —— 常规(212) / 紧凑(148) / 纯图标(58)
+      //   原来固定 168px，窗口一窄主区只剩 400px，六张卡被挤成两列全部换行。
+      ".jm{display:grid;grid-template-columns:auto 1fr;gap:0;min-height:480px;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;overflow:hidden;background:var(--dsw-alias-bg-layer-1);container-type:inline-size}",
+      ".jm.is-compact{grid-template-columns:auto 1fr}",
+
+      /* 侧栏 */
+      ".jm-side{display:flex;flex-direction:column;padding:14px 8px;gap:12px;background:var(--dsw-alias-bg-layer-2);border-right:.5px solid var(--dsw-alias-border-l1);min-width:0;width:196px;transition:width .18s ease;flex:0 0 auto;overflow:hidden}",
+      ".jm-side.collapsed{width:54px;padding:14px 6px}",
+      ".jm-side.collapsed .jm-side-name,.jm-side.collapsed .jm-side-id,.jm-side.collapsed .jm-nav span,.jm-side.collapsed .jm-side-brand>div:last-child{display:none}",
+      ".jm-side.collapsed .jm-nav{justify-content:center;padding:8px}",
+      ".jm-side.collapsed .jm-avatar{margin:0 auto}",
+      ".jm-side.collapsed .jm-collapse{margin:0 auto}",
+      ".jm-side-brand{display:flex;align-items:center;gap:9px;padding:0 6px}",
+      ".jm-avatar{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#3a7bd5,#00d2ff);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex:0 0 auto}",
+      ".jm-side-name{font-size:13.5px;font-weight:650;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".jm-side-id{font-size:10px;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,monospace;margin-top:1px}",
+      ".jm-side-nav{display:flex;flex-direction:column;gap:2px;flex:1}",
+      ".jm-nav{display:flex;align-items:center;gap:9px;background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:12.5px;padding:7px 9px;border-radius:7px;cursor:pointer;font-family:inherit;text-align:left;transition:background .13s,color .13s;white-space:nowrap}",
+      ".jm-nav:hover{background:rgba(127,127,127,.09);color:var(--dsw-alias-label-primary)}",
+      ".jm-nav.on{background:var(--dsw-alias-brand-primary);color:#fff;font-weight:600}",
+      ".jm-side-foot{display:flex;flex-direction:column;gap:2px;padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-nav-quiet{font-size:12px;padding:6px 9px;color:var(--dsw-alias-label-tertiary)}",
+
+      /* 主区 */
+      ".jm-main{padding:18px 20px;min-width:0;overflow-x:hidden}",
+      ".jm-loading{padding:60px 20px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:13px}",
+      ".jm-err{color:var(--dsw-alias-state-error-primary);font-size:12.5px;line-height:1.7;padding:14px 16px;background:rgba(248,81,73,.08);border-radius:9px;margin-bottom:12px}",
+      ".jm-hint-line{font-size:12px;color:var(--dsw-alias-label-tertiary);margin-bottom:12px}",
+      ".jm-btn{background:var(--dsw-alias-brand-primary);color:#fff;border:none;border-radius:7px;font-size:12.5px;height:30px;padding:0 14px;cursor:pointer;font-family:inherit}",
+      ".jm-stack{display:flex;flex-direction:column;gap:14px}",
+
+      /* 卡片 */
+      // 2×3 网格最稳：600px 宽时每卡 ~215px，正好放"15 分钟"这种值不换行
+      // ⚠️ 顺序要紧：基础规则在前，@container 在后；反过来会被基础规则覆盖
+      ".jm-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}",
+      "@container (min-width:880px){.jm-cards{grid-template-columns:1fr 1fr 1fr}}",
+      "@container (max-width:430px){.jm-cards{grid-template-columns:1fr}}",
+      ".jm-card{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:9px;padding:11px 13px;position:relative;overflow:hidden;transition:border-color .15s}",
+      ".jm-card:hover{border-color:var(--dsw-alias-border-l2)}",
+      ".jm-card::after{content:\"\";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--dsw-alias-brand-primary);opacity:.5}",
+      ".jm-card.t-ok::after{background:var(--dsw-alias-state-success-primary);opacity:.8}",
+      ".jm-card.t-warn::after{background:var(--dsw-alias-state-warn-primary);opacity:.8}",
+      ".jm-card.t-bad::after{background:var(--dsw-alias-state-error-primary);opacity:.8}",
+      ".jm-card-top{display:flex;align-items:center;justify-content:space-between;gap:6px}",
+      ".jm-card-k{font-size:10.5px;color:var(--dsw-alias-label-tertiary);letter-spacing:.04em;font-weight:600;text-transform:uppercase}",
+      ".jm-card-ic{color:var(--dsw-alias-label-tertiary);opacity:.7}",
+      ".jm-card-v{font-size:17px;font-weight:680;margin-top:4px;line-height:1.2;font-variant-numeric:tabular-nums;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".jm-card-n{font-size:10.5px;color:var(--dsw-alias-label-tertiary);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".jm-card-k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+
+      /* 面板 */
+      ".jm-panel{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:13px 15px;min-width:0}",
+      ".jm-panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:650;color:var(--dsw-alias-label-primary);margin-bottom:10px;letter-spacing:.01em}",
+      ".jm-link{background:none;border:none;color:var(--dsw-alias-brand-primary);font-size:11.5px;cursor:pointer;padding:0;font-family:inherit;text-decoration:none}",
+      ".jm-link:hover{text-decoration:underline}",
+      ".jm-split{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;align-items:start}",
+      "@container (max-width:700px){.jm-split{grid-template-columns:1fr}}",
+
+      /* 事件流 */
+      ".jm-feed{display:flex;flex-direction:column;gap:1px;max-height:300px;overflow-y:auto}",
+      ".jm-feed-tall{max-height:none}",
+      ".jm-ev{display:flex;align-items:baseline;gap:8px;padding:5px 6px;border-radius:5px;font-size:12px;line-height:1.65;flex-wrap:wrap}",
+      ".jm-ev:hover{background:rgba(127,127,127,.07)}",
+      ".jm-ev-dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto;transform:translateY(-1px);background:var(--dsw-alias-state-idle-primary)}",
+      ".jm-ev-dot.tone-ok{background:var(--dsw-alias-state-success-primary)}",
+      ".jm-ev-dot.tone-brand{background:var(--dsw-alias-brand-primary)}",
+      ".jm-ev-dot.tone-pink{background:#e879a6}",
+      ".jm-ev-dot.tone-warn{background:var(--dsw-alias-state-warn-primary)}",
+      ".jm-ev-dot.tone-bad{background:var(--dsw-alias-state-error-primary)}",
+      ".jm-ev-dot.tone-xhs{background:#ff2e4d}",
+      ".jm-ev-time{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;font-variant-numeric:tabular-nums}",
+      ".jm-ev-kind{font-size:11px;font-weight:600;flex:0 0 auto;min-width:56px;color:var(--dsw-alias-label-secondary)}",
+      ".jm-ev-kind.tone-ok{color:var(--dsw-alias-state-success-primary)}",
+      ".jm-ev-kind.tone-brand{color:var(--dsw-alias-brand-primary)}",
+      ".jm-ev-kind.tone-pink{color:#e879a6}",
+      ".jm-ev-kind.tone-warn{color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-ev-kind.tone-bad{color:var(--dsw-alias-state-error-primary)}",
+      ".jm-ev-kind.tone-xhs{color:#ff2e4d}",
+      ".jm-ev-text{flex:1;min-width:140px;color:var(--dsw-alias-label-secondary)}",
+      ".jm-tag{font-family:ui-monospace,monospace;font-size:10px;color:var(--dsw-alias-label-tertiary);background:rgba(127,127,127,.11);padding:1px 5px;border-radius:3px;flex:0 0 auto}",
+      ".jm-empty{padding:30px 16px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:12.5px}",
+      ".jm-empty-lg{padding:60px 20px;border:.5px dashed var(--dsw-alias-border-l1);border-radius:10px}",
+
+      /* 平台卡 */
+      ".jm-platforms{display:flex;flex-direction:column;gap:10px}",
+      ".jm-plat{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:10px 12px}",
+      ".jm-plat-h{display:flex;align-items:center;gap:7px;margin-bottom:7px}",
+      ".jm-plat-badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px}",
+      ".jm-plat-badge.bili{background:rgba(251,114,153,.16);color:#fb7299}",
+      ".jm-plat-badge.xhs{background:rgba(255,46,77,.14);color:#ff2e4d}",
+      ".jm-plat-name{font-size:12px;font-weight:600}",
+      ".jm-plat-row{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--dsw-alias-label-tertiary);padding:2.5px 0}",
+      ".jm-plat-row code{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--dsw-alias-label-secondary)}",
+      ".jm-plat-row b{font-weight:650}",
+      ".jm-plat-row b.on{color:var(--dsw-alias-state-success-primary)}",
+      ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
+      ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
+      ".jm-plat-live.on{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
+      ".jm-plat-live.off{background:rgba(227,179,65,.15);color:var(--dsw-alias-state-warn-primary)}",
+
+      /* 日记 */
+      ".jm-diary{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:13px 15px}",
+      ".jm-diary-h{display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:wrap}",
+      ".jm-st{font-size:10.5px;font-weight:650;padding:2px 8px;border-radius:999px}",
+      ".jm-st.pending{background:rgba(227,179,65,.15);color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-st.approved{background:rgba(63,199,245,.15);color:var(--dsw-alias-brand-primary)}",
+      ".jm-st.published{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
+      ".jm-st.rejected{background:rgba(248,81,73,.13);color:var(--dsw-alias-state-error-primary)}",
+      ".jm-meta{font-size:10.5px;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,monospace}",
+      ".jm-diary-b{font-size:12.5px;line-height:1.85;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;max-height:220px;overflow-y:auto}",
+      ".jm-wants{background:var(--dsw-alias-bg-layer-2);border-radius:10px;padding:13px 15px}",
+      ".jm-wants-t{font-size:10.5px;font-weight:650;color:var(--dsw-alias-label-tertiary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}",
+      ".jm-want{font-size:12.5px;line-height:1.75;color:var(--dsw-alias-label-secondary);padding-left:10px;border-left:2px solid var(--dsw-alias-brand-primary);margin-bottom:6px}",
+
+      /* 数据条 */
+      ".jm-bars{display:flex;flex-direction:column;gap:5px}",
+      ".jm-bar-row{display:grid;grid-template-columns:96px 1fr 32px;gap:9px;align-items:center;font-size:11.5px}",
+      ".jm-bar-k{color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".jm-bar-track{height:6px;background:rgba(127,127,127,.13);border-radius:3px;overflow:hidden}",
+      ".jm-bar-fill{display:block;height:100%;border-radius:3px;background:var(--dsw-alias-brand-primary);transition:width .3s}",
+      ".jm-bar-fill.tone-ok{background:var(--dsw-alias-state-success-primary)}",
+      ".jm-bar-fill.tone-warn{background:var(--dsw-alias-state-warn-primary)}",
+      ".jm-bar-fill.tone-bad{background:var(--dsw-alias-state-error-primary)}",
+      ".jm-bar-fill.tone-pink{background:#e879a6}",
+      ".jm-bar-fill.tone-xhs{background:#ff2e4d}",
+      ".jm-bar-v{text-align:right;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}",
+      ".jm-kv{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}",
+      ".jm-kv>div{display:flex;justify-content:space-between;padding:7px 10px;background:var(--dsw-alias-bg-layer-1);border-radius:7px;font-size:11.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-kv b{color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}",
+
+      /* 自检 */
+      ".jm-checks{display:flex;flex-direction:column}",
+      ".jm-check{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:12px}",
+      ".jm-check:last-child{border-bottom:none}",
+      ".jm-check-ic{width:15px;flex:0 0 auto;text-align:center;font-weight:700;font-size:12px}",
+      ".jm-check.ok .jm-check-ic{color:var(--dsw-alias-state-success-primary)}",
+      ".jm-check.no .jm-check-ic{color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-check-nm{flex:0 0 auto;min-width:88px;color:var(--dsw-alias-label-secondary)}",
+      ".jm-check-dt{flex:1;color:var(--dsw-alias-label-tertiary);font-family:ui-monospace,monospace;font-size:10.5px}",
+
+      /* 表格 */
+      ".jm-table{width:100%;border-collapse:collapse;font-size:12px}",
+      ".jm-table th{text-align:left;padding:7px 9px;font-size:10.5px;color:var(--dsw-alias-label-tertiary);font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-bottom:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-table td{padding:7px 9px;border-bottom:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);vertical-align:top}",
+      ".jm-table td.mono{font-family:ui-monospace,monospace;font-size:10.5px}",
+      ".jm-table td.small{font-size:11px;line-height:1.6}",
+      ".jm-table a{color:var(--dsw-alias-brand-primary);text-decoration:none}",
+      ".jm-table a:hover{text-decoration:underline}",
+      ".jm-table tr:last-child td{border-bottom:none}",
+      ".jm-fill{max-height:560px;overflow-y:auto}",
+
+      /* 七日趋势图 */
+      ".jm-trend-sum{font-size:11px;font-weight:500;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-chart{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;height:110px;align-items:end;padding:6px 0 0}",
+      ".jm-chart-col{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}",
+      ".jm-chart-bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;min-height:0}",
+      ".jm-chart-bar{width:66%;max-width:34px;min-height:2px;border-radius:5px 5px 2px 2px;background:linear-gradient(to top,var(--dsw-alias-brand-primary),rgba(63,199,245,.55));transition:height .3s ease,opacity .15s}",
+      ".jm-chart-col:hover .jm-chart-bar{opacity:.82}",
+      ".jm-chart-bar.empty{background:rgba(127,127,127,.16)}",
+      ".jm-chart-x{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}",
+      ".jm-chart-v{font-size:10.5px;font-weight:650;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;height:13px}",
+      ".jm-chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-tertiary)}",
+
+      /* ═══ 设置页打磨（2026-10-20 第三轮）═══
+         控制台有 99 个样式类，设置页只有 23 个 —— 差距全在视觉。
+         这里只覆盖样式、不动组件，风险最低。 */
+      // 分组标题：加一道竖条 + 上间距，视觉分段明显
+      ".blw-group{display:flex;align-items:center;gap:8px;margin-top:24px;margin-bottom:2px;font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.03em}",
+      ".blw-group::before{content:'';width:3px;height:13px;border-radius:2px;background:var(--dsw-alias-brand-primary);flex:0 0 auto}",
+      ".blw-group:first-of-type{margin-top:6px}",
+      // 行：做成浅卡片，hover 提亮
+      ".blw-rows{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:2px 14px;margin-top:8px;overflow:hidden}",
+      ".blw-row{padding:13px 0;border-bottom:.5px solid var(--dsw-alias-border-l1);transition:background .13s;margin:0 -14px;padding-left:14px;padding-right:14px}",
+      ".blw-row:last-child{border-bottom:none}",
+      ".blw-row:hover{background:rgba(127,127,127,.05)}",
+      ".blw-label{font-size:13px;font-weight:560;line-height:1.45}",
+      ".blw-hint{color:var(--dsw-alias-label-tertiary);margin-top:4px;font-size:11.5px;line-height:1.6;max-width:46ch}",
+      // 输入框：更高、圆角更大、聚焦有光晕
+      ".blw-input,.blw-select{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;color:var(--dsw-alias-label-primary);font-size:12.5px;height:32px;padding:0 11px;min-width:190px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s}",
+      ".blw-input:hover,.blw-select:hover{border-color:var(--dsw-alias-label-tertiary)}",
+      ".blw-input:focus-visible,.blw-select:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 3px rgba(63,199,245,.13)}",
+      ".blw-input[readonly]{opacity:.6;cursor:not-allowed}",
+      ".blw-input.blw-wide{min-width:300px}",
+      // 复选框：做成开关
+      ".blw-row input[type=checkbox]{appearance:none;-webkit-appearance:none;width:36px;height:20px;border-radius:10px;background:rgba(127,127,127,.28);position:relative;cursor:pointer;transition:background .18s;flex:0 0 auto;border:none;outline:none}",
+      ".blw-row input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}",
+      ".blw-row input[type=checkbox]:checked{background:var(--dsw-alias-brand-primary)}",
+      ".blw-row input[type=checkbox]:checked::after{transform:translateX(16px)}",
+      ".blw-row input[type=checkbox]:disabled{opacity:.45;cursor:default}",
+      ".blw-row input[type=checkbox]:focus-visible{box-shadow:0 0 0 3px rgba(63,199,245,.18)}",
+      // 按钮：统一高度与圆角
+      ".blw-btn{background:var(--dsw-alias-brand-primary);color:#fff;border:none;border-radius:8px;font-size:12.5px;height:32px;padding:0 15px;cursor:pointer;font-family:inherit;transition:opacity .14s,transform .1s}",
+      ".blw-btn:hover:not(:disabled){opacity:.88}",
+      ".blw-btn:active:not(:disabled){transform:scale(.98)}",
+      ".blw-btn:disabled{opacity:.42;cursor:default}",
+      ".blw-btn2{background:transparent;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}",
+      ".blw-btn2:hover:not(:disabled){background:rgba(127,127,127,.08);opacity:1}",
+      // 操作区：粘在底部，滚动时也能点保存
+      ".blw-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px;padding:14px 0 4px;border-top:.5px solid var(--dsw-alias-border-l1);align-items:center}",
+      // 未保存提示更醒目
+      ".blw-actions span{font-size:12px;font-weight:600}",
+      // 只读徽章
+      ".blw-badge{display:inline-block;font-size:10px;line-height:15px;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.16);color:var(--dsw-alias-label-tertiary);margin-left:7px;font-weight:600}",
+      // 输出块
+      ".blw-out{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:9px;padding:12px 14px;max-height:260px;overflow:auto;margin-top:12px}",
+      ".blw-err{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.65;margin-top:9px;background:rgba(248,81,73,.08);border-radius:7px;padding:9px 12px}",
+      ".blw-intro{color:var(--dsw-alias-label-tertiary);margin:6px 0 0;font-size:12.5px;line-height:1.7}",
+      ".blw-intro code{font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(127,127,127,.13);padding:1px 6px;border-radius:4px}",
+      // cookie 区
+      ".blw-cookie{display:flex;flex-direction:column;gap:8px;min-width:270px}",
+      // 顶部导航条
+      ".blw-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 0 15px;border-bottom:.5px solid var(--dsw-alias-border-l1);margin-bottom:10px}",
+      ".blw-nav-tabs{display:flex;gap:2px;background:var(--dsw-alias-bg-layer-2);padding:2.5px;border-radius:9px}",
+      ".blw-navtab{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:12.5px;font-weight:560;padding:6px 17px;border-radius:6px;cursor:pointer;transition:.15s;font-family:inherit}",
+      ".blw-navtab:hover{color:var(--dsw-alias-label-primary)}",
+      ".blw-navtab.on{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.14)}",
+
+      /* ── 主面板页（侧栏点开）── */
+      ".jm-page{display:flex;flex-direction:column;gap:0;height:100%;min-height:520px}",
+      ".jm-page-tabs{display:flex;gap:2px;padding:0 0 0 2px;border-bottom:.5px solid var(--dsw-alias-border-l1);flex:0 0 auto}",
+      ".jm-page-tab{position:relative;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;padding:11px 18px;cursor:pointer;font-family:inherit;margin-bottom:-.5px;transition:color .14s,border-color .14s;display:flex;align-items:center;gap:6px}",
+      ".jm-page-tab:hover{color:var(--dsw-alias-label-primary)}",
+      ".jm-page-tab.on{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary)}",
+      ".jm-badge-dot{background:var(--dsw-alias-state-warn-primary);color:#1a1300;font-size:10px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px;display:grid;place-items:center;line-height:1}",
+      ".jm-page-body{padding:16px 18px;overflow-y:auto;flex:1;min-height:0}",
+      ".jm-page-body .jm{border:none;border-radius:0;min-height:0}",
+      ".jm-page-body .jm-side{display:none}",
+
+      /* ── 审批 ── */
+      ".jm-approval{display:flex;flex-direction:column;gap:14px;max-width:900px}",
+      ".jm-appr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}",
+      ".jm-appr-title{font-size:16px;font-weight:680;letter-spacing:-.01em}",
+      ".jm-appr-sub{font-size:12px;color:var(--dsw-alias-label-tertiary);margin-top:3px}",
+      ".jm-ok-msg{font-size:12px;color:var(--dsw-alias-state-success-primary);background:rgba(63,185,80,.1);border-radius:7px;padding:8px 12px}",
+      ".jm-appr-list{display:flex;flex-direction:column;gap:11px}",
+      ".jm-appr-item{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:13px 15px;position:relative;overflow:hidden}",
+      ".jm-appr-item.s-pending{border-color:rgba(227,179,65,.35)}",
+      ".jm-appr-item.s-pending::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--dsw-alias-state-warn-primary)}",
+      ".jm-appr-item.s-approved::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--dsw-alias-state-success-primary)}",
+      ".jm-appr-item.s-rejected::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--dsw-alias-state-error-primary)}",
+      ".jm-appr-item-h{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap}",
+      ".jm-st2{font-size:10.5px;font-weight:650;padding:2px 8px;border-radius:999px}",
+      ".jm-st2.warn{background:rgba(227,179,65,.16);color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-st2.ok{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
+      ".jm-st2.bad{background:rgba(248,81,73,.13);color:var(--dsw-alias-state-error-primary)}",
+      ".jm-appr-kind{font-size:11.5px;font-weight:600;color:var(--dsw-alias-label-secondary)}",
+      ".jm-plat-mini{font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(127,127,127,.13);color:var(--dsw-alias-label-tertiary)}",
+      ".jm-appr-body{font-size:13px;line-height:1.9;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;background:var(--dsw-alias-bg-layer-1);border-radius:8px;padding:11px 13px;max-height:300px;overflow-y:auto}",
+      ".jm-appr-edit{width:100%;min-height:180px;font-size:13px;line-height:1.9;font-family:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-brand-primary);border-radius:8px;padding:11px 13px;resize:vertical;outline:none}",
+      ".jm-appr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;align-items:center}",
+      ".jm-btn{background:var(--dsw-alias-brand-primary);color:#fff;border:none;border-radius:7px;font-size:12.5px;height:30px;padding:0 14px;cursor:pointer;font-family:inherit;transition:opacity .14s}",
+      ".jm-btn:hover{opacity:.88}",
+      ".jm-btn:disabled{opacity:.45;cursor:default}",
+      ".jm-btn-ghost{background:transparent;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}",
+      ".jm-btn-danger{background:transparent;border:.5px solid rgba(248,81,73,.45);color:var(--dsw-alias-state-error-primary)}",
+      ".jm-btn-danger:hover{background:rgba(248,81,73,.1)}",
+      ".jm-reject-box{margin-top:11px;padding:12px 13px;background:rgba(248,81,73,.06);border:.5px solid rgba(248,81,73,.25);border-radius:8px}",
+      ".jm-reject-h{font-size:11.5px;color:var(--dsw-alias-state-error-primary);margin-bottom:8px;font-weight:600}",
+      ".jm-input{width:100%;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l2);border-radius:7px;color:var(--dsw-alias-label-primary);font-size:12.5px;height:32px;padding:0 10px;outline:none;font-family:inherit}",
+      ".jm-input:focus{border-color:var(--dsw-alias-brand-primary)}",
+      ".jm-rejected-hint{font-size:11.5px;color:var(--dsw-alias-label-tertiary);line-height:1.7;padding-left:2px}",
+
+      /* 她最近在想什么 */
+      ".jm-thoughts{background:linear-gradient(135deg,rgba(63,199,245,.07),rgba(63,199,245,.02));border:.5px solid rgba(63,199,245,.22);border-radius:10px;padding:13px 15px}",
+      ".jm-thoughts-h{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:650;color:var(--dsw-alias-brand-primary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:9px}",
+      ".jm-thoughts-ic{font-size:15px;line-height:1;opacity:.8}",
+      ".jm-thought{font-size:12.5px;line-height:1.8;color:var(--dsw-alias-label-secondary);padding-left:11px;border-left:2px solid rgba(63,199,245,.35);margin-bottom:7px}",
+      ".jm-thought:last-child{margin-bottom:0}",
+      /* ── 视觉打磨（2026-10-20 第二轮）── */
+      // 卡片：顶部一道微光，hover 时轻微抬起
+      ".jm-card{transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}",
+      ".jm-card:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(0,0,0,.16)}",
+      ".jm-card::after{filter:saturate(1.15)}",
+      // 事件行：hover 时左侧出现指示条
+      ".jm-ev{position:relative;border-left:2px solid transparent;transition:border-color .13s,background .13s}",
+      ".jm-ev:hover{border-left-color:var(--dsw-alias-brand-primary)}",
+      // 面板标题：加一道细横线，分区更清楚
+      ".jm-panel-h{border-bottom:.5px solid var(--dsw-alias-border-l1);padding-bottom:8px}",
+      // 概览里的平台卡：hover 提亮
+      ".jm-plat{transition:border-color .15s,background .15s}",
+      ".jm-plat:hover{border-color:var(--dsw-alias-border-l2)}",
+      // 侧栏导航：选中项左侧一道竖条，更像控制台
+      ".jm-nav{position:relative}",
+      ".jm-nav.on::before{content:'';position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:2.5px;height:16px;border-radius:2px;background:#fff;opacity:.9}",
+      ".jm-side.collapsed .jm-nav.on::before{display:none}",
+      // 滚动条：细一点，不抢视线
+      ".jm-feed::-webkit-scrollbar,.jm-diary-b::-webkit-scrollbar,.jm-fill::-webkit-scrollbar{width:6px}",
+      ".jm-feed::-webkit-scrollbar-thumb,.jm-diary-b::-webkit-scrollbar-thumb,.jm-fill::-webkit-scrollbar-thumb{background:rgba(127,127,127,.28);border-radius:3px}",
+      ".jm-feed::-webkit-scrollbar-thumb:hover,.jm-diary-b::-webkit-scrollbar-thumb:hover,.jm-fill::-webkit-scrollbar-thumb:hover{background:rgba(127,127,127,.45)}",
+      ".jm-feed::-webkit-scrollbar-track,.jm-diary-b::-webkit-scrollbar-track,.jm-fill::-webkit-scrollbar-track{background:transparent}",
+      // 主区：小屏时收紧内边距
+      "@container (max-width:520px){.jm-main{padding:12px 12px}}",
+      // 卡片值：数字用等宽，跳动时不晃
+      ".jm-card-v{font-feature-settings:'tnum' 1}",
+      // 空状态：加图标感的虚线框
+      ".jm-empty{border:.5px dashed var(--dsw-alias-border-l2);border-radius:9px;margin:4px 0}",
+      // 快速操作按钮：按下反馈
+      ".jm-qbtn:active{transform:scale(.97)}",
+      // 表格：hover 高亮行
+      ".jm-table tbody tr{transition:background .13s}",
+      ".jm-table tbody tr:hover{background:rgba(127,127,127,.06)}",
+
+
+      /* 快速操作 */
+      ".jm-quick{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:12px 14px}",
+      ".jm-quick-t{font-size:10.5px;font-weight:650;color:var(--dsw-alias-label-tertiary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:9px}",
+      ".jm-quick-btns{display:flex;gap:8px;flex-wrap:wrap}",
+      ".jm-qbtn{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12px;padding:6px 13px;border-radius:7px;cursor:pointer;font-family:inherit;transition:border-color .14s,background .14s}",
+      ".jm-qbtn:hover{border-color:var(--dsw-alias-brand-primary);background:rgba(63,199,245,.08);color:var(--dsw-alias-brand-primary)}",
     ].join("");
 
     // ── 唯一真相：字段清单（加字段只改这里 ✓）────────────────────────────
@@ -362,6 +759,588 @@ window.__ModuleLoader__.load({
         testOut ? h("div", box, testOut) : null);
     }
 
+
+    // ── 状态面板（2026-10-20 合并）：把独立运营面板收进 DSH 界面 ────────────
+    // 数据来自 /dsh-bili/api/dashboard（实时采集，与 collect.mjs 同源）
+    // ══════════════════════════════════════════════════════════════════
+    // 鲸檬控制台（2026-10-20 重做）
+    //
+    // 设计取舍：
+    //   · 左侧竖向导航，不是顶部页签 —— 区块多了以后横向页签会挤成一排小字
+    //   · 首页是「她现在怎么样」，不是日志列表 —— 打开就想知道"活着没、在干嘛"
+    //   · 所有颜色走 DSH 主题 token，深色浅色都跟着变
+    //   · 双平台并列（B 站 + 小红书），不混在一起算
+    // ══════════════════════════════════════════════════════════════════
+
+    const ICONS = {
+      home: "M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+      timeline: "M3 6h18M3 12h18M3 18h18",
+      book: "M4 4h7v16H4zM13 4h7v16h-7z",
+      chart: "M4 20V10m5 10V4m5 16v-7m5 7V8",
+      heart: "M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z",
+      gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4L6 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z",
+      check: "M20 6L9 17l-5-5",
+      spark: "M12 2l2.4 7.2H22l-6 4.4 2.3 7.2-6.3-4.6-6.3 4.6L8 13.6 2 9.2h7.6z",
+      panel: "M3 4h18v16H3zM9 4v16",
+    };
+
+    function Icon({ name, size = 16 }) {
+      return h("svg", {
+        width: size, height: size, viewBox: "0 0 24 24", fill: "none",
+        stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round",
+        style: { display: "block", flex: "0 0 auto" },
+      }, h("path", { d: ICONS[name] || ICONS.spark }));
+    }
+
+    function StatCard({ label, value, note, tone, icon }) {
+      return h("div", { className: `jm-card${tone ? " t-" + tone : ""}` },
+        h("div", { className: "jm-card-top" },
+          h("span", { className: "jm-card-k" }, label),
+          icon ? h("span", { className: "jm-card-ic" }, h(Icon, { name: icon, size: 13 })) : null),
+        h("div", { className: "jm-card-v" }, value),
+        note ? h("div", { className: "jm-card-n" }, note) : null);
+    }
+
+    function StatusPanel({ onClose }) {
+      const [d, setD] = useState(null);
+      const [err, setErr] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [nav, setNav] = useState("home");
+      // 侧栏折叠：窄屏默认收起，只留图标，把宽度还给主区
+      // 默认收起：DSH 设置页的内容区本来就不宽（约 600–760），
+      // 侧栏展开会吃掉 1/3 宽度。收起后主区能多出 140px。
+      const [collapsed, setCollapsed] = useState(true);
+
+      const request = useRef({ mounted: false, controller: null });
+      const load = useCallback(async () => {
+        const state = request.current;
+        if (!state.mounted || state.controller) return;
+        const controller = new AbortController();
+        state.controller = controller;
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        setBusy(true); setErr("");
+        try {
+          const r = await fetch(`${API}/dashboard`, {
+            headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal,
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const j = await r.json();
+          if (!j.ok || !j.data) throw new Error(j.error || "采集失败");
+          if (state.mounted && state.controller === controller) setD(j.data);
+        } catch (e) {
+          if (state.mounted && state.controller === controller) {
+            setErr(`读不到状态：${e.name === "AbortError" ? "请求超时" : e.message}`);
+          }
+        } finally {
+          clearTimeout(timeout);
+          if (state.controller === controller) {
+            state.controller = null;
+            if (state.mounted) setBusy(false);
+          }
+        }
+      }, []);
+
+      useEffect(() => {
+        request.current.mounted = true;
+        load();
+        // 每 30 秒自动刷新 —— 面板是"看她活着没"，不该停在打开那一刻
+        const timer = setInterval(() => { if (request.current.mounted) load(); }, 30000);
+        return () => {
+          clearInterval(timer);
+          request.current.mounted = false;
+          if (request.current.controller) request.current.controller.abort();
+          request.current.controller = null;
+        };
+      }, [load]);
+
+      const KIND_LABEL = {
+        "night-plan": "生物钟", "night-wake": "醒来", "night-skip": "不看",
+        "feed": "选题", "debrief": "读懂", "interact": "互动",
+        "diary-draft": "写日记", "diary-push": "推审", "diary-approve": "批准",
+        "diary-reject": "驳回", "diary-publish": "发布", "create-brief": "创作",
+        "create-outline": "分镜", "risk": "风控", "error": "错误",
+        "dynamic": "动态", "notify": "通知",
+        "xhs-feed": "小红书选题", "xhs-read": "小红书读懂", "xhs-interact": "小红书互动",
+        "xhs-note": "小红书笔记", "xhs-diary": "小红书日记",
+      };
+      const KIND_TONE = {
+        night: "idle", feed: "ok", debrief: "brand", interact: "pink",
+        diary: "warn", risk: "bad", error: "bad", xhs: "xhs",
+      };
+      const groupOf = (k) => {
+        if (/^xhs/.test(k)) return "xhs";
+        if (/^night/.test(k)) return "night";
+        if (k === "feed") return "feed";
+        if (k === "debrief") return "debrief";
+        if (/^interact|^dynamic|^notify/.test(k)) return "interact";
+        if (/^diary|^create/.test(k)) return "diary";
+        if (/^risk|^error/.test(k)) return "risk";
+        return "other";
+      };
+
+      const navItems = [
+        ["home", "总览", "home"],
+        ["timeline", "活动流", "timeline"],
+        ["diary", "潜水日志", "book"],
+        ["data", "数据", "chart"],
+        ["read", "读过什么", "heart"],
+        ["health", "自检", "check"],
+      ];
+
+      const sidebar = h("div", { className: `jm-side${collapsed ? " collapsed" : ""}` },
+        h("div", { className: "jm-side-brand" },
+          h("div", { className: "jm-avatar" }, "鲸"),
+          h("div", { style: { minWidth: 0 } },
+            h("div", { className: "jm-side-name" }, d?.persona?.name || "鲸檬"),
+            h("div", { className: "jm-side-id" }, d?.persona?.selfMid || "—"))),
+        h("div", { className: "jm-side-nav" },
+          navItems.map(([k, label, icon]) => h("button", {
+            key: k,
+            className: `jm-nav${nav === k ? " on" : ""}`,
+            onClick: () => setNav(k),
+          }, h(Icon, { name: icon, size: 15 }), h("span", null, label)))),
+        h("div", { className: "jm-side-foot" },
+          h("button", {
+            className: "jm-nav jm-nav-quiet jm-collapse", title: collapsed ? "展开侧栏" : "收起侧栏",
+            onClick: () => setCollapsed((v) => !v),
+          }, h(Icon, { name: "panel", size: 15 }), h("span", null, "收起")),
+          h("button", { className: "jm-nav jm-nav-quiet", onClick: load, disabled: busy },
+            h(Icon, { name: "spark", size: 15 }), h("span", null, busy ? "刷新中" : "刷新")),
+          onClose ? h("button", { className: "jm-nav jm-nav-quiet", onClick: onClose },
+            h(Icon, { name: "gear", size: 15 }), h("span", null, "设置")) : null));
+
+      if (err) {
+        return h("div", { className: "jm" }, sidebar,
+          h("div", { className: "jm-main" },
+            h("div", { className: "jm-err" }, err),
+            h("div", { className: "jm-hint-line" }, "插件新加的接口需要重启 DSH 才会生效。"),
+            h("button", { className: "jm-btn", onClick: load, disabled: busy }, "重试")));
+      }
+
+      if (!d) {
+        return h("div", { className: "jm" }, sidebar,
+          h("div", { className: "jm-main" }, h("div", { className: "jm-loading" }, "读取她的状态…")));
+      }
+
+      const s = d.schedule?.current;
+      const plat = d.platforms || {};
+      const okCount = (d.checks || []).filter((c) => c.ok).length;
+      const total = (d.checks || []).length;
+      const warmup = d.switches?.warmup;
+
+      let when = "未排期", whenNote = "", whenTone = "";
+      if (s?.planAt) {
+        const ms = s.msUntil;
+        if (s.fired) { when = "已唤醒并入队"; whenNote = `计划 ${s.atText || ""}`; whenTone = "ok"; }
+        else if (ms > 0) {
+          const m = Math.round(ms / 60000);
+          when = m < 60 ? `${m} 分钟` : `${Math.floor(m / 60)} 小时 ${m % 60} 分`;
+          whenNote = `预计 ${s.atText || ""} 醒来`;
+        } else { when = "到点了"; whenNote = "等待触发"; whenTone = "warn"; }
+      }
+      if (s?.action === "skip") { when = s.fired ? "不看流程已入队" : "今天不看"; whenNote = "本轮计划跳过观看"; whenTone = "warn"; }
+
+      const cards = h("div", { className: "jm-cards" },
+        h(StatCard, { label: "下次醒来", value: when, note: whenNote, tone: whenTone, icon: "spark" }),
+        h(StatCard, { label: "今日事件", value: d.stats?.todayEvents ?? 0, note: `累计 ${d.stats?.totalEvents ?? 0}`, icon: "timeline" }),
+        h(StatCard, { label: "今天读过", value: (d.diary?.watched || []).filter((w) => String(w.date).slice(0, 10) === new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })).length, note: `想说没说 ${(d.diary?.wants || []).length}`, icon: "book" }),
+        h(StatCard, { label: "待审日记", value: d.diary?.statusCount?.pending ?? 0, note: `已发 ${d.diary?.statusCount?.published ?? 0}`, tone: (d.diary?.statusCount?.pending ?? 0) > 0 ? "warn" : "", icon: "check" }),
+        h(StatCard, { label: "运行模式", value: warmup ? "养号期" : "正常", note: `分享${d.switches?.share ? "开" : "关"} · 评论监听${d.switches?.listenComment ? "开" : "关"}`, tone: warmup ? "warn" : "ok", icon: "gear" }),
+        h(StatCard, { label: "自检", value: `${okCount}/${total}`, note: okCount === total ? "全部通过" : `${total - okCount} 项待处理`, tone: okCount === total ? "ok" : "warn", icon: "check" }));
+
+      // 事件行渲染
+      const renderEvent = (e, i) => {
+        const g = groupOf(e.kind);
+        const t = new Date(e.at);
+        const hh = String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+        const dd = t.toLocaleDateString("sv-SE");
+        const isToday = dd === new Date().toLocaleDateString("sv-SE");
+        return h("div", { key: i, className: "jm-ev" },
+          h("span", { className: `jm-ev-dot tone-${KIND_TONE[g] || "idle"}` }),
+          h("span", { className: "jm-ev-time" }, hh),
+          h("span", { className: `jm-ev-kind tone-${KIND_TONE[g] || "idle"}` }, KIND_LABEL[e.kind] || e.kind),
+          h("span", { className: "jm-ev-text" }, e.note || ""),
+          e.target ? h("code", { className: "jm-tag" }, String(e.target).slice(0, 22)) : null,
+          !isToday ? h("code", { className: "jm-tag" }, dd) : null);
+      };
+
+      const quickActions = h("div", { className: "jm-quick" },
+        h("div", { className: "jm-quick-t" }, "快速操作"),
+        h("div", { className: "jm-quick-btns" },
+          [["现在跑一轮", "让她立刻醒一次"],
+           ["同步日记", "把本地日记推到飞书"],
+           ["依赖体检", "检查 cookie / ffmpeg / node"]]
+            .map(([label, tip]) => h("button", {
+              key: label, className: "jm-qbtn", title: tip,
+              onClick: () => {
+                fetch(`${API}/action`, {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: label }),
+                }).then((r) => r.json()).then((j) => {
+                  if (j.ok) load();
+                }).catch(() => {});
+              },
+            }, label))));
+
+      // 「她最近在想什么」—— 从「想说没说」里取，这是她最有内容的部分
+      const thoughts = (d.diary?.wants || []).slice(0, 3);
+      const thoughtsCard = thoughts.length ? h("div", { className: "jm-thoughts" },
+        h("div", { className: "jm-thoughts-h" },
+          h("span", { className: "jm-thoughts-ic" }, "❝"),
+          h("span", null, "她最近在想什么")),
+        h("div", { className: "jm-thoughts-b" },
+          thoughts.map((w, i) => h("div", { key: i, className: "jm-thought" }, w)))) : null;
+
+      const homeView = h("div", { className: "jm-stack" },
+        cards,
+        thoughtsCard,
+        quickActions,
+        h("div", { className: "jm-split" },
+          h("div", { className: "jm-panel" },
+            h("div", { className: "jm-panel-h" },
+              h("span", null, "最近在干什么"),
+              h("button", { className: "jm-link", onClick: () => setNav("timeline") }, "全部 →")),
+            h("div", { className: "jm-feed" },
+              (d.events || []).length
+                ? (d.events || []).slice(0, 8).map(renderEvent)
+                : h("div", { className: "jm-empty" }, "还没有事件。她第一次醒来后会出现在这里。"))),
+          h("div", { className: "jm-panel" },
+            h("div", { className: "jm-panel-h" }, h("span", null, "平台状态")),
+            h("div", { className: "jm-platforms" },
+              h("div", { className: "jm-plat" },
+                h("div", { className: "jm-plat-h" },
+                  h("span", { className: "jm-plat-badge bili" }, "B 站"),
+                  h("span", { className: "jm-plat-name" }, plat.bili?.name || d.persona?.name || "鲸檬"),
+                  h("span", { className: `jm-plat-live${plat.bili?.logged ? " on" : " off"}` }, plat.bili?.logged ? "在线" : "未登录")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "mid"), h("code", null, plat.bili?.mid || "—")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.bili?.todayEvents ?? 0} 今日 / ${plat.bili?.events ?? 0} 累计`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "分享"), h("b", { className: plat.bili?.shareOn ? "on" : "off" }, plat.bili?.shareOn ? "开" : "关")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "评论"), h("b", { className: plat.bili?.commentOn ? "on" : "off" }, plat.bili?.commentOn ? "开" : "关"))),
+              h("div", { className: "jm-plat" },
+                h("div", { className: "jm-plat-h" },
+                  h("span", { className: "jm-plat-badge xhs" }, "小红书"),
+                  h("span", { className: "jm-plat-name" }, plat.xhs?.name || "裂纹虎刻"),
+                  h("span", { className: `jm-plat-live${plat.xhs?.logged ? " on" : " off"}` }, plat.xhs?.logged ? "在线" : "未登录")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.xhs?.todayEvents ?? 0} 今日 / ${plat.xhs?.events ?? 0} 累计`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "选题"), h("b", null, `${plat.xhs?.feedCount ?? 0} 轮`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
+
+      const timelineView = h("div", { className: "jm-panel jm-fill" },
+        h("div", { className: "jm-panel-h" },
+          h("span", null, `全部活动（${(d.events || []).length}）`),
+          h("button", { className: "jm-link", onClick: load }, busy ? "刷新中" : "刷新")),
+        h("div", { className: "jm-feed jm-feed-tall" },
+          (d.events || []).length
+            ? (d.events || []).map(renderEvent)
+            : h("div", { className: "jm-empty" }, "还没有事件。")));
+
+      const diaryView = h("div", { className: "jm-stack" },
+        !(d.diary?.queue || []).length
+          ? h("div", { className: "jm-empty jm-empty-lg" }, "还没写过日记。")
+          : (d.diary.queue).slice().reverse().map((e, i) => h("div", { key: i, className: "jm-diary" },
+            h("div", { className: "jm-diary-h" },
+              h("span", { className: `jm-st ${e.status}` },
+                { pending: "待审", approved: "已批准", published: "已发布", rejected: "已驳回" }[e.status] || e.status),
+              h("span", { className: "jm-meta" }, `${e.date} · ${e.chars} 字`),
+              e.dynId ? h("a", { className: "jm-link", href: `https://t.bilibili.com/${e.dynId}`, target: "_blank", rel: "noreferrer" }, "B站动态") : null),
+            h("div", { className: "jm-diary-b" }, e.text))),
+        (d.diary?.wants || []).length
+          ? h("div", { className: "jm-wants" },
+            h("div", { className: "jm-wants-t" }, "她想说、还没说的"),
+            (d.diary.wants).map((w, i) => h("div", { key: i, className: "jm-want" }, w)))
+          : null);
+
+      // 七日趋势：柱状图（事件数），下方标日期
+      const trend = d.trend || [];
+      const trendMax = Math.max(1, ...trend.map((x) => x.events));
+      const trendView = h("div", { className: "jm-panel" },
+        h("div", { className: "jm-panel-h" },
+          h("span", null, "最近七天"),
+          h("span", { className: "jm-trend-sum" },
+            `共 ${trend.reduce((a, b) => a + b.events, 0)} 条事件`)),
+        h("div", { className: "jm-chart" },
+          trend.map((x, i) => {
+            const pct = Math.round((x.events / trendMax) * 100);
+            return h("div", { key: i, className: "jm-chart-col", title: `${x.date}：${x.events} 条事件 / 读 ${x.reads} / 日记 ${x.diaries}` },
+              h("div", { className: "jm-chart-bar-wrap" },
+                h("div", {
+                  className: `jm-chart-bar${x.events === 0 ? " empty" : ""}`,
+                  style: { height: `${Math.max(x.events ? 6 : 2, pct)}%` },
+                })),
+              h("div", { className: "jm-chart-x" }, x.label),
+              h("div", { className: "jm-chart-v" }, x.events || ""));
+          })),
+        h("div", { className: "jm-chart-legend" },
+          h("span", null, `读过 ${trend.reduce((a, b) => a + b.reads, 0)} 条`),
+          h("span", null, `写日记 ${trend.reduce((a, b) => a + b.diaries, 0)} 篇`),
+          h("span", null, `互动 ${trend.reduce((a, b) => a + b.interacts, 0)} 次`),
+          h("span", null, `风控 ${trend.reduce((a, b) => a + b.risks, 0)} 次`)));
+
+      const dataView = h("div", { className: "jm-stack" },
+        trendView,
+        h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" }, h("span", null, "事件分布")),
+          h("div", { className: "jm-bars" },
+            Object.entries(d.stats?.allByKind || {}).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => {
+              const max = Math.max(...Object.values(d.stats.allByKind || { x: 1 }));
+              return h("div", { key: k, className: "jm-bar-row" },
+                h("span", { className: "jm-bar-k" }, KIND_LABEL[k] || k),
+                h("span", { className: "jm-bar-track" },
+                  h("span", { className: `jm-bar-fill tone-${KIND_TONE[groupOf(k)] || "brand"}`, style: { width: `${Math.max(3, (v / max) * 100)}%` } })),
+                h("span", { className: "jm-bar-v" }, v));
+            }))),
+        h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" }, h("span", null, "今日 vs 累计")),
+          h("div", { className: "jm-kv" },
+            h("div", null, h("span", null, "今日事件"), h("b", null, d.stats?.todayEvents ?? 0)),
+            h("div", null, h("span", null, "累计事件"), h("b", null, d.stats?.totalEvents ?? 0)),
+            h("div", null, h("span", null, "读过视频"), h("b", null, (d.diary?.watched || []).length)),
+            h("div", null, h("span", null, "日记总数"), h("b", null, (d.diary?.queue || []).length)))));
+
+      const readView = h("div", { className: "jm-panel jm-fill" },
+        h("div", { className: "jm-panel-h" }, h("span", null, `读过什么（${(d.diary?.watched || []).length}）`)),
+        !(d.diary?.watched || []).length
+          ? h("div", { className: "jm-empty" }, "还没读过任何视频。")
+          : h("table", { className: "jm-table" },
+            h("thead", null, h("tr", null,
+              h("th", null, "日期"), h("th", null, "BV"), h("th", null, "标题"), h("th", null, "她的判断"))),
+            h("tbody", null, (d.diary.watched).map((w, i) => h("tr", { key: i },
+              h("td", { className: "mono" }, w.date),
+              h("td", { className: "mono" },
+                h("a", { href: `https://www.bilibili.com/video/${w.bv}/`, target: "_blank", rel: "noreferrer" }, w.bv)),
+              h("td", null, w.title),
+              h("td", { className: "small" }, w.thought))))));
+
+      const healthView = h("div", { className: "jm-panel jm-fill" },
+        h("div", { className: "jm-panel-h" }, h("span", null, `自检（${okCount}/${total}）`)),
+        h("div", { className: "jm-checks" },
+          (d.checks || []).map((c, i) => h("div", { key: i, className: `jm-check${c.ok ? " ok" : " no"}` },
+            h("span", { className: "jm-check-ic" }, c.ok ? "✓" : "!"),
+            h("span", { className: "jm-check-nm" }, c.name),
+            h("span", { className: "jm-check-dt" }, c.detail || "")))));
+
+      const views = {
+        home: homeView, timeline: timelineView, diary: diaryView,
+        data: dataView, read: readView, health: healthView,
+      };
+
+      return h("div", { className: "jm" }, sidebar,
+        h("div", { className: "jm-main" }, views[nav] || homeView));
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════
+    // 审批视图 —— 她的产出要经你点头才发出去
+    //
+    // 三种状态：待审 / 已通过（待发布） / 已驳回（要重写）
+    // 驳回时把理由写回去，她下一轮会看到，按理由重写。
+    // ══════════════════════════════════════════════════════════════════
+    function ApprovalView() {
+      const [items, setItems] = useState([]);
+      const [busy, setBusy] = useState("");
+      const [msg, setMsg] = useState("");
+      const [err, setErr] = useState("");
+      const [editing, setEditing] = useState(null);   // { id, text }
+      const [rejecting, setRejecting] = useState(null); // { id, reason }
+
+      const [loading, setLoading] = useState(true);
+      const actionLock = useRef(false);
+      const itemKey = (it) => `${it.kind || "diary"}:${it.id}`;
+
+      const load = useCallback(async () => {
+        setErr(""); setLoading(true);
+        try {
+          const r = await fetch(`${API}/approvals`, { headers: { accept: "application/json" } });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || "读取失败");
+          if (!Array.isArray(j.items)) throw new Error("待审列表格式错误");
+          setItems(j.items);
+        } catch (e) { setErr(`读不到待审列表：${e.message}${/404/.test(e.message) ? "，接口尚未加载，请重启后重试" : ""}`); }
+        finally { setLoading(false); }
+      }, []);
+
+      useEffect(() => { load(); }, [load]);
+
+      const act = async (it, action, payload) => {
+        if (actionLock.current) return false;
+        if (action === "reject" && !String(payload?.reason || "").trim()) { setErr("请填写驳回理由"); return false; }
+        actionLock.current = true;
+        setBusy(itemKey(it) + action); setMsg(""); setErr("");
+        try {
+          const r = await fetch(`${API}/approvals/${action}`, {
+            method: "POST",
+            headers: { "content-type": "application/json", accept: "application/json" },
+            body: JSON.stringify({ id: it.id, kind: it.kind, ...(payload || {}) }),
+          });
+          const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
+          if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+          setMsg(j.detail || "已完成");
+          await load();
+          return true;
+        } catch (e) { setErr(`${action} 失败：${e.message}`); return false; }
+        finally { actionLock.current = false; setBusy(""); }
+      };
+
+      const STATUS = {
+        pending: { label: "待你审", cls: "warn" },
+        approved: { label: "已通过", cls: "ok" },
+        rejected: { label: "要重写", cls: "bad" },
+        published: { label: "已发布", cls: "ok" },
+      };
+
+      const pendingCount = items.filter((x) => x.status === "pending").length;
+
+      return h("div", { className: "jm-approval" },
+        h("div", { className: "jm-appr-head" },
+          h("div", null,
+            h("div", { className: "jm-appr-title" }, "审批"),
+            h("div", { className: "jm-appr-sub" },
+              loading ? "读取中…" : err ? "读取失败，请重试" : pendingCount ? `${pendingCount} 条等你点头` : "暂时没有要审的")),
+          h("button", { className: "jm-link", onClick: load, disabled: loading || !!busy }, "刷新")),
+
+        err ? h("div", { className: "jm-err" }, err) : null,
+        msg ? h("div", { className: "jm-ok-msg" }, msg) : null,
+
+        loading && !items.length ? h("div", { className: "jm-empty" }, "正在读取待审列表…") : err && !items.length ? null : !items.length
+          ? h("div", { className: "jm-empty jm-empty-lg" },
+            "没有待审的东西。她写完日记、或准备好一条内容，会出现在这里。")
+          : h("div", { className: "jm-appr-list" },
+            items.map((it) => {
+              const st = STATUS[it.status] || { label: it.status, cls: "" };
+              const isEditing = editing && editing.key === itemKey(it);
+              const isRejecting = rejecting && rejecting.key === itemKey(it);
+              return h("div", { key: itemKey(it), className: `jm-appr-item s-${it.status}` },
+                h("div", { className: "jm-appr-item-h" },
+                  h("span", { className: `jm-st2 ${st.cls}` }, st.label),
+                  h("span", { className: "jm-appr-kind" }, it.kindLabel || "潜水日志"),
+                  h("span", { className: "jm-meta" }, `${it.chars} 字 · ${it.date}`),
+                  it.platform ? h("span", { className: "jm-plat-mini" }, it.platform) : null),
+
+                it.title && !isEditing ? h("div", { className: "jm-appr-kind" }, it.title) : null,
+                (it.images || []).length ? h("div", { className: "jm-meta" }, `配图 ${it.images.length} 张`) : null,
+                isEditing && it.kind === "xhs-diary" ? h("input", { className: "jm-input", value: editing.title || "", placeholder: "笔记标题", maxLength: 20, onChange: (e) => setEditing({ ...editing, title: e.target.value }) }) : null,
+                isEditing
+                  ? h("textarea", {
+                    className: "jm-appr-edit",
+                    value: editing.text, maxLength: it.maxChars || (it.kind === "xhs-diary" ? 1000 : 500),
+                    onChange: (e) => setEditing({ ...editing, text: e.target.value }),
+                  })
+                  : h("div", { className: "jm-appr-body" }, it.text),
+
+                isRejecting
+                  ? h("div", { className: "jm-reject-box" },
+                    h("div", { className: "jm-reject-h" }, "哪里不对？请留下重写要求："),
+                    h("input", {
+                      className: "jm-input", autoFocus: true,
+                      placeholder: "例如：太像报告了，再口语一点；开头那句太自夸",
+                      value: rejecting.reason,
+                      onChange: (e) => setRejecting({ ...rejecting, reason: e.target.value }),
+                    }),
+                    h("div", { className: "jm-appr-actions" },
+                      h("button", {
+                        className: "jm-btn jm-btn-danger", disabled: !!busy || !rejecting.reason.trim(),
+                        onClick: async () => { if (await act(it, "reject", { reason: rejecting.reason.trim() })) setRejecting(null); },
+                      }, "确认驳回并保存理由"),
+                      h("button", { className: "jm-btn jm-btn-ghost", onClick: () => setRejecting(null) }, "算了")))
+                  : null,
+
+                h("div", { className: "jm-appr-actions" },
+                  ["pending", "approved", "rejected"].includes(it.status) ? [
+                    isEditing
+                      ? h("button", {
+                        key: "save", className: "jm-btn jm-btn-ghost", disabled: !!busy || !editing.text.trim(),
+                        onClick: async () => { if (await act(it, "edit", { text: editing.text, ...(it.kind === "xhs-diary" ? { title: editing.title } : {}) })) setEditing(null); },
+                      }, "保存修改，重新待审")
+                      : h("button", {
+                        key: "edit", className: "jm-btn jm-btn-ghost",
+                        disabled: !!busy, onClick: () => setEditing({ key: itemKey(it), text: it.text || it.content || "", title: it.title || "" }),
+                      }, "改一下"),
+                    h("button", {
+                      key: "ok", className: "jm-btn",
+                      disabled: !!busy || !!editing || it.status !== "pending",
+                      onClick: () => act(it, "approve"),
+                    }, busy === itemKey(it) + "approve" ? "通过中…" : "通过，可以发"),
+                    h("button", {
+                      key: "no", className: "jm-btn jm-btn-danger",
+                      disabled: !!busy || it.status !== "pending", onClick: () => setRejecting({ key: itemKey(it), reason: "" }),
+                    }, "不通过"),
+                  ].filter(Boolean) : null,
+
+                  it.status === "approved" ? h("button", {
+                    className: "jm-btn", disabled: !!busy || !!editing,
+                    onClick: () => act(it, "publish"),
+                  }, busy === itemKey(it) + "publish" ? "发布中…" : "现在发布") : null,
+
+                  it.status === "rejected" ? h("div", { className: "jm-rejected-hint" },
+                    it.reason ? `驳回理由：${it.reason}` : "已驳回，等待按要求重写") : null,
+
+                  it.status === "published" && it.url
+                    ? h("a", { className: "jm-link", href: it.url, target: "_blank", rel: "noreferrer" }, "看已发布的 →")
+                    : null));
+            })));
+    }
+
+    // ── 侧栏入口（2026-10-20）：挂在「自动化任务」下面 ──────────────
+    // 顺序约定（来自 DSH 自身）：Plugins 0 · 自动化任务 10 · 看板 20 · 技能 30
+    // 我们排在 11，紧跟「自动化任务」之后。
+    const PANEL_ID = "jingmeng";
+    const PANEL_ORDER = 11;
+
+    function JingmengIcon({ size }) {
+      const px = Number.isFinite(size) ? size : 16;
+      // 一条鲸的剪影：背部弧线 + 尾鳍 + 水花
+      return h("svg", {
+        "data-dsh-panel-entry": PANEL_ID,
+        viewBox: "0 0 16 16", width: px, height: px, fill: "none",
+        stroke: "currentColor", strokeWidth: "1.3",
+        strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true",
+      },
+        h("path", { key: "body", d: "M1.8 8.6c1.1-2.4 3.4-3.9 6.1-3.9 2.3 0 4.3 1.1 5.6 2.9l1.4-1.2v4.3l-1.4-1.2c-1.3 1.8-3.3 2.9-5.6 2.9-2.7 0-5-1.5-6.1-3.8z" }),
+        h("path", { key: "eye", d: "M5.1 8.1h.01" }),
+        h("path", { key: "spout", d: "M6.9 4.7c0-1 .6-1.8 1.5-2.1" }),
+      );
+    }
+
+    // 主面板：控制台 + 审批两个页签
+    function JingmengPanel() {
+      useStyleOnce();
+      const [tab, setTab] = useState("console");
+      const [pending, setPending] = useState(0);
+
+      // 侧栏图标上显示待审数量，一眼能看到"有事要做"
+      useEffect(() => {
+        let alive = true;
+        const check = async () => {
+          try {
+            const r = await fetch(`${API}/approvals`, { headers: { accept: "application/json" } });
+            if (!r.ok) return;
+            const j = await r.json();
+            if (alive && j.ok) setPending((j.items || []).filter((x) => x.status === "pending").length);
+          } catch { /* 读不到就算了，不打扰 */ }
+        };
+        check();
+        const timer = setInterval(check, 30000);
+        return () => { alive = false; clearInterval(timer); };
+      }, []);
+
+      return h("div", { className: "jm-page" },
+        h("div", { className: "jm-page-tabs" },
+          h("button", {
+            className: `jm-page-tab${tab === "console" ? " on" : ""}`,
+            onClick: () => setTab("console"),
+          }, "控制台"),
+          h("button", {
+            className: `jm-page-tab${tab === "approval" ? " on" : ""}`,
+            onClick: () => setTab("approval"),
+          }, "审批",
+          pending > 0 ? h("span", { className: "jm-badge-dot" }, pending) : null)),
+        h("div", { className: "jm-page-body" },
+          tab === "console" ? h(StatusPanel, { onClose: null }) : h(ApprovalView, null)));
+    }
+
     function BiliWhaleSection() {
       useStyleOnce();
       const [cfg, setCfg] = useState(null);
@@ -371,6 +1350,8 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = useState("");
       const [ck, setCk] = useState({ sessdata: "", bili_jct: "", buvid3: "" });
       const [ckMsg, setCkMsg] = useState("");
+      // 2026-10-20：界面上半部是「她正在做什么」，下半部是设置 —— 两个视图切换
+      const [view, setView] = useState("status");   // status | config
 
       const load = useCallback(async () => {
         setErr("");
@@ -439,10 +1420,29 @@ window.__ModuleLoader__.load({
         } catch (e) { setCkMsg(`✗ ${e.message}`); } finally { setBusy(""); }
       };
 
+      // 2026-10-20：新控制台自带侧栏导航，不需要顶部页签
+      const navBar = h("div", { className: "blw-nav" },
+        h("div", { className: "blw-nav-brand" },
+          h("span", { className: "blw-nav-dot" }),
+          h("span", { className: "blw-nav-name" }, "鲸檬")),
+        h("div", { className: "blw-nav-tabs" },
+          [["status", "控制台"], ["config", "设置"]].map(([k, label]) => h("button", {
+            key: k,
+            className: `blw-navtab${view === k ? " on" : ""}`,
+            onClick: () => setView(k),
+          }, label))));
+
       if (!cfg) {
-        return h("div", { className: "blw" },
-          h("h3", { className: "blw-title" }, "养鱼"),
+        return h("div", { className: "blw blw-wide" },
+          navBar,
           err ? h("div", { className: "blw-err" }, err) : h("div", { className: "blw-hint" }, "读取中…"));
+      }
+
+      // 状态视图：整块交给 StatusPanel
+      if (view === "status") {
+        return h("div", { className: "blw blw-wide" },
+          navBar,
+          h(StatusPanel, { onClose: () => setView("config") }));
       }
 
       const groups = [];
@@ -462,11 +1462,10 @@ window.__ModuleLoader__.load({
       const ci = { className: "blw-input" };
 
       return h("div", { className: "blw" },
-        h("h3", { className: "blw-title" }, "养鱼"),
+        navBar,
         h("p", { className: "blw-intro" },
-          "让 agent 自己按作息刷 B 站、看懂视频、写两本日记，把值得的 @ 你。",
-          "所有值写进 ", h("code", null, "~/.dsh/bili-whale.config.json"),
-          "（与工具链共用同一份 ✓；这里没显示的字段保存时原样保留 ✓）。"),
+          "改动写进 ", h("code", null, "~/.dsh/bili-whale.config.json"),
+          "（与工具链共用同一份；这里没显示的字段保存时原样保留）。"),
 
         ...groupsTop.map(renderGroup),
 
@@ -509,6 +1508,7 @@ window.__ModuleLoader__.load({
     const NAMES = { nav: "养鱼" };
 
     function apply(ctx) {
+      // ① 设置页里的「养鱼」（保留 —— 配置项还在这儿）
       ctx.effect(
         () =>
           ctx.slots.inject("settings.section", () =>
@@ -519,6 +1519,32 @@ window.__ModuleLoader__.load({
             "bili-whale: settings section",
           ),
         "bili-whale: settings section",
+      );
+
+      // ② 侧栏入口（2026-10-20）：挂在「自动化任务」下面
+      ctx.effect(
+        () =>
+          ctx.slots.inject("sidebar.panellist", () =>
+            ctx.slots.register(
+              { name: "sidebar.panellist", id: PANEL_ID, order: PANEL_ORDER, label: () => "养鱼" },
+              JingmengIcon,
+            ),
+            "jingmeng: sidebar entry",
+          ),
+        "jingmeng: sidebar entry",
+      );
+
+      // ③ 侧栏点开后的主面板（与控制台同一个 id，DSH 靠这个配对）
+      ctx.effect(
+        () =>
+          ctx.slots.inject("main", () =>
+            ctx.slots.register(
+              { name: "main", key: PANEL_ID },
+              JingmengPanel,
+            ),
+            "jingmeng: main panel",
+          ),
+        "jingmeng: main panel",
       );
     }
 

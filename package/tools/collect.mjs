@@ -118,8 +118,14 @@ const quota = readJson(path.join(BILI, 'quota.json'), null)
 const favs = readJson(path.join(BILI, 'favorites.json'), null)
 
 // ── 6. 今日统计 ──────────────────────────────────────────────────
-const today = now.toLocaleDateString('sv-SE')
-const todayEvents = events.filter((e) => String(e.at ?? '').slice(0, 10) === today)
+const shanghaiDate = (value) => {
+  const date = new Date(value)
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' })
+    : null
+}
+const today = shanghaiDate(now)
+const todayEvents = events.filter((e) => shanghaiDate(e.at ?? '') === today)
 const countBy = (arr, key) => {
   const m = {}
   for (const x of arr) m[x[key]] = (m[x[key]] ?? 0) + 1
@@ -132,7 +138,81 @@ const lastFeed = events.find((e) => e.kind === 'feed') ?? null
 const lastDebrief = events.find((e) => e.kind === 'debrief') ?? null
 const lastPublish = events.find((e) => e.kind === 'diary-publish') ?? null
 
-// ── 8. 健康检查 ──────────────────────────────────────────────────
+// ── 7.5 七日趋势（2026-10-20 加）──────────────────────────────────
+// 为什么要它：单日数字看不出"她是在变活跃还是变懒"。
+// 按天分桶，给出每天的事件数、读过几条、写了几篇、撞几次风控。
+function sevenDayTrend() {
+  const days = []
+  const now = new Date()
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+    const key = d.toLocaleDateString('sv-SE')
+    days.push({
+      date: key,
+      label: String(d.getMonth() + 1) + '/' + String(d.getDate()),
+      events: 0, reads: 0, diaries: 0, risks: 0, interacts: 0,
+    })
+  }
+  const byDate = Object.fromEntries(days.map((d) => [d.date, d]))
+  for (const e of events) {
+    const k = String(e.at ?? '').slice(0, 10)
+    const d = byDate[k]
+    if (!d) continue
+    d.events += 1
+    if (e.kind === 'debrief') d.reads += 1
+    if (e.kind === 'diary-draft') d.diaries += 1
+    if (e.kind === 'interact' && e.meta?.action !== 'status') d.interacts += 1
+    if (e.kind === 'risk') d.risks += 1
+  }
+  return days
+}
+const trend = sevenDayTrend()
+
+// ── 8. 平台状态（B 站 + 小红书）────────────────────────────────────
+// 两个平台各自独立：cookie 不共用、数据不混算。
+// 小红书的"是否登录"只看 cookies.json 在不在且有内容，不发网络请求
+// （面板要秒开，不能因为某个平台掉了就卡住整个页面）。
+function platformStatus() {
+  const xhsDir = path.join(DSH, 'xhs')
+  const xhsCookies = readJson(path.join(xhsDir, 'cookies.json'), null)
+  let xhsLogged = false
+  try {
+    if (xhsCookies) {
+      const s = JSON.stringify(xhsCookies)
+      // 粗略判断：有非空的 cookie 字段
+      xhsLogged = s.length > 20 && /\"?(a1|web_session|webId)\"/.test(s)
+    }
+  } catch { /* ignore */ }
+
+  const xhsEvents = events.filter((e) => String(e.kind || '').startsWith('xhs-'))
+  const xhsToday = xhsEvents.filter((e) => String(e.at || '').slice(0, 10) === today)
+  const xhsCommented = readJson(path.join(xhsDir, 'commented.json'), null)
+
+  return {
+    bili: {
+      name: cfg?.persona?.name ?? '鲸檬',
+      mid: cfg?.self?.mid ?? null,
+      logged: !!(cred?.sessdata),
+      shareOn: !!cfg?.share?.enabled,
+      commentOn: !!cfg?.listen?.comment,
+      events: events.filter((e) => !String(e.kind || '').startsWith('xhs-')).length,
+      todayEvents: todayEvents.filter((e) => !String(e.kind || '').startsWith('xhs-')).length,
+    },
+    xhs: {
+      name: '裂纹虎刻',
+      logged: xhsLogged,
+      events: xhsEvents.length,
+      todayEvents: xhsToday.length,
+      readCount: xhsEvents.filter((e) => e.kind === 'xhs-read').length,
+      feedCount: xhsEvents.filter((e) => e.kind === 'xhs-feed').length,
+      commentedCount: Object.keys(xhsCommented?.seen ?? xhsCommented ?? {}).length || 0,
+      dataDir: xhsDir,
+    },
+  }
+}
+const platforms = platformStatus()
+
+// ── 9. 健康检查 ──────────────────────────────────────────────────
 const checks = []
 function check(name, ok, detail, hint = '') {
   checks.push({ name, ok, detail, hint })
@@ -209,6 +289,10 @@ const snapshot = {
 
   checks,
 
+  platforms,
+
+  trend,
+
   events: events.slice(0, 300),
 }
 
@@ -272,6 +356,12 @@ function writeSnapshot(snap) {
   fs.writeFileSync(single, standalone, 'utf8')
   fs.chmodSync(single, 0o644)
   return single
+}
+
+// --stdout：只把 JSON 打到 stdout，不写文件、不生成单文件版（给插件路由调用）
+if (argv.includes('--stdout')) {
+  process.stdout.write(json)
+  process.exit(0)
 }
 
 const watchSec = Number(opt('watch', 0))

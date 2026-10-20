@@ -19,7 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { resolveNodeExecutable } from './node-runtime.js'
 // 收件箱读取复用工具链的实现（避免在插件里再抄一份 B站 接口 ✓）
 import { pullFeed, makeHeaders } from '../tools/lib/msgfeed.mjs'
@@ -101,9 +101,24 @@ function diaryPushLines() {
 }
 
 function wakePrompt(st, identity, biliMjs) {
+  // 小红书走 bili.mjs 的 xhs 子命令（`node bili.mjs xhs feed`），不另开入口。
+  // 为什么统一：界面面板、collect.mjs、bili.mjs 三处都按 `bili.mjs xhs …` 写的，
+  // 再让调度器单独指向 xhs.mjs 就会出现两套入口，以后必然对不上。
+  // 判据：xhs.mjs 存在（代理目标在）且 本地服务在监听 -> 否则整段不提，避免每轮刷报错。
+  const xhsMjs = path.join(path.dirname(biliMjs), 'xhs.mjs')
+  const xhsReady = (() => {
+    try {
+      if (!fs.existsSync(xhsMjs)) return false
+      // 轻探测：只看端口有没有人听，不发 HTTP 请求 —— 别让唤醒流程被网络拖慢。
+      const out = execFileSync('/usr/sbin/lsof', ['-nP', '-iTCP:18060', '-sTCP:LISTEN'], { timeout: 3000, encoding: 'utf8' })
+      return out.includes('LISTEN')
+    } catch { return false }
+  })()
+
   return [
     identity,
     `工具入口：node ${JSON.stringify(biliMjs)} <命令>。下文 bili.mjs 均指此绝对路径。`,
+    ...(xhsReady ? [`小红书入口：node ${JSON.stringify(biliMjs)} xhs <命令>（下文简写 xhs，等价于 bili.mjs xhs）`] : []),
     `【生物钟】你醒了 —— ${st.atText ?? ''}${st.window ? `（窗口 ${st.window}${st.withinWindow ? ' · ' + st.withinWindow : ''}）` : ''}。`,
     '',
     // 2026-10-20：先告诉她"冷了几天"，再给流程 —— 心情在前，任务在后 ✓
@@ -152,6 +167,32 @@ function wakePrompt(st, identity, biliMjs) {
       return days >= 7 ? ["5.5) ⛔ 已经 " + days + " 天没有主人的表态 → **今天不分享**（只看 + 写两本日记 + 推荐给我 ✓ 日记照写 ✓）"] : []
     })(),
     ...diaryPushLines(),
+    // ── 小红书（2026-10-20 老板定：让 AI 接管小红书，先接这一条腿）──
+    // 只在 xhs 服务活着时才放进清单：挂了就整段不出现，不让它变成每轮的报错噪音。
+    ...(xhsReady ? (() => {
+      // 额度不写死在提示词里 —— 从配置读，改了配置这里立刻跟着变。
+      let x = {}
+      try { x = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.dsh', 'bili-whale.config.json'), 'utf8')).xhs ?? {} } catch {}
+      const like = Number(x.likeDaily ?? 5)
+      const fav = Number(x.collectDaily ?? 3)
+      const cmt = Number(x.commentDaily ?? 1)
+      const note = Number(x.shareDaily ?? 1)
+      return [
+        '',
+        '── 小红书（另一条腿，和 B 站并行，各写各的）──',
+        `入口：node ${JSON.stringify(biliMjs)} xhs <命令>`,
+        'X1) `xhs doctor` —— 有红项就只读、别对外发；登录态红了直接报备我',
+        'X2) `xhs feed --n 5` 选题（偏好跟 B 站同一套，但**看过什么各记各的**）',
+        'X3) 挑 1–2 条 `xhs read <id> --token <token>` 读懂（评论一起看：小红书评论区比正文诚实）',
+        `X4) 互动额度（今天还剩多少先跑 \`xhs doctor\` 看）：点赞 ≤${like} · 收藏 ≤${fav} · 评论 ≤${cmt}`,
+        '    先 `--dry` 看要发什么，确认了再 `--go`。额度用完就停，不换号、不重试 ✗',
+        'X5) 评论只在**真有一句话想说**时才发 —— 小红书没有「@主人」这种用法，别把 B 站那套搬过来 ✗',
+        '    ⚠️ 小红书禁引流/搬运/违禁词；你说的是鲸檬的话，不是营销号的话 ✓',
+        `X6) 笔记每天 ≤${note} 篇，**而且必须先给我看草稿+配图**，我不点头不发 ✗`,
+        '    草稿放 ~/.dsh/xhs/draft.md，用 `xhs note --from <路径> --dry` 预览',
+        'X7) 收工报一句「小红书看了什么、有没有开口」—— 没有就说没有，别编 ✓',
+      ]
+    })() : []),
     '9) 收工：记 `diary log`，别再自己加戏 ✓',
   ].join('\n')
 }

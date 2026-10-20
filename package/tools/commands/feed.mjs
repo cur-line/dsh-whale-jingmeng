@@ -138,7 +138,9 @@ try {
   const learnTokens = (text) => {
     const out = new Set()
     // ⚠️ ownerName 为空时 new RegExp('') 会在每个字之间插空格 → 必须先判断 ✗（实测踩过）
-    const base = ownerName ? String(text).replace(new RegExp(ownerName, 'g'), ' ') : String(text)
+    // 昵称里可能有 . * ( ) + ? 等正则元字符 —— 直接 new RegExp 会抛异常或误伤
+    const escRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const base = ownerName ? String(text).replace(new RegExp(escRe(ownerName), 'g'), ' ') : String(text)
     const t = base.replace(/@\S+/g, ' ')
     for (const m of t.matchAll(/[A-Za-z][A-Za-z0-9]{1,}/g)) if (m[0].length >= 2) out.add(m[0].toLowerCase())
     for (const m of t.matchAll(/[\u4e00-\u9fa5]{2,}/g)) {
@@ -173,13 +175,68 @@ const prefTokens = prefs.map((p) => ({
   tokens: [...new Set([p, ...String(p).split(/[\s·,，、/]+/).filter((t) => t.length >= 2)])],
 }))
 const hitsOf = (title) => prefTokens.filter((p) => p.tokens.some((tok) => title.includes(tok))).map((p) => p.label)
+// 时长上下限（秒）—— 60s 以下讲不透，1 小时以上读不动
+const MIN_DUR = 60
+const MAX_DUR = 3600
+
+// 不喜欢的词命中判定（只判标题：简介里的词太容易误伤）
+const DISLIKE_TOKENS = (Array.isArray(dislike) ? dislike : [])
+  .flatMap((d) => [d, ...String(d).split(/[\s·,，、/]+/)])
+  .filter((t) => t && String(t).length >= 2)
+const dislikeHit = (title) => {
+  const s = String(title ?? '')
+  return DISLIKE_TOKENS.some((tok) => s.includes(tok))
+}
+
 const densityOf = (x) => Math.log10(1 + x.dm / Math.max(30, x.d))
 // 2026-10-20：排除她自己的视频（实测刷到过自己的《大肥鱼成精了》✗ 别让自己看自己）
 const selfName = String(config().self?.name ?? "")
-const uniq = [...new Map(pool.map((x) => [x.bv, x])).values()]
+// ⚠️ 以前 new Map 后写先赢 —— 关注源的 dm=0 会覆盖热门源的真实弹幕数，
+//   导致那条的 densityOf 直接归零。改成"谁的信息更全要谁"：
+//   弹幕数大的优先；相同则播放量大的。
+const byBv = new Map()
+for (const x of pool) {
+  const prev = byBv.get(x.bv)
+  if (!prev) { byBv.set(x.bv, x); continue }
+  const better = (Number(x.dm) || 0) > (Number(prev.dm) || 0)
+    || ((Number(x.dm) || 0) === (Number(prev.dm) || 0) && (Number(x.play) || 0) > (Number(prev.play) || 0))
+  // 选择元数据与合并计数分开：低弹幕来源也可能提供更新的播放数。
+  const metadata = better ? { ...prev, ...x } : prev
+  byBv.set(x.bv, { ...metadata, dm: Math.max(Number(prev.dm)||0, Number(x.dm)||0),
+                               play: Math.max(Number(prev.play)||0, Number(x.play)||0) })
+}
+const uniq = [...byBv.values()]
   .filter((x) => !seen.has(x.bv) && !likedBVs.has(x.bv) && !favBVs.has(x.bv))
   .filter((x) => !(selfName && String(x.up ?? "").includes(selfName)))
-const scoreOf = (x) => densityOf(x) * 3 + hitsOf(x.t).length * 4 + boostOf(x.t)
+  // ── 时长合法性：0 或异常大的（直播回放/坏数据）直接剔除 ──
+  //   实测见过 78874s（21.9 小时）和 d=0 的条目混进候选池并霸榜
+  .filter((x) => {
+    const d = Number(x.d) || 0
+    if (!Number.isFinite(d) || d <= 0) return false
+    if (d < MIN_DUR) return false          // 太短，没内容可讲
+    if (d > MAX_DUR) return false          // 太长，读不动（含直播回放）
+    return true
+  })
+  // ── dislike 真正生效：标题命中不喜欢的词就剔掉 ──
+  .filter((x) => !dislikeHit(x.t))
+
+// 打分：密度 + 偏好命中 + 反馈学习，再乘一个「有没有人真的在看」的系数。
+//
+// ⚠️ 这不是播放量门槛（主人明确不要按播放加权）。
+//   它只区分一件事：**零弹幕零点赞的视频，没有任何观众证据**，
+//   不该仅凭标题命中偏好就压过有真实讨论的内容。
+//   实测：标题含两个偏好词 = +8 分，而 2799 弹幕的高互动视频也只有 +3.9 + 4 ——
+//   不设系数的话，播放 1、弹幕 0 的冷门条目会稳定霸榜。
+const audienceOf = (x) => {
+  const dm = Number(x.dm) || 0
+  const play = Number(x.play) || 0
+  if (dm > 0) return 1              // 有人讨论 → 全额
+  if (play >= 1000) return 0.85     // 没人弹幕但确实有人看 → 轻微降权
+  if (play >= 100) return 0.7       // 边缘
+  return 0.45                       // 近乎无人问津 → 明显降权（但不清零，仍可能被挑中）
+}
+
+const scoreOf = (x) => (densityOf(x) * 3 + hitsOf(x.t).length * 4 + boostOf(x.t)) * audienceOf(x)
 uniq.sort((a, b) => scoreOf(b) - scoreOf(a))
 for (const x of uniq) { x._hits = hitsOf(x.t); x._score = scoreOf(x) }
 

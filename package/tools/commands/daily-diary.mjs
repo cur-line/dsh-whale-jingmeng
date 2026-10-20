@@ -24,6 +24,7 @@ import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { logEvent } from '../lib/event-log.mjs'
+import { readEntries, writeEntries, lockQueue, createRevision } from '../lib/diary-queue.mjs'
 
 const HOME = process.env.HOME || os.homedir()
 const STATE_DIR = process.env.DSH_HOME || path.join(HOME, '.dsh')
@@ -54,12 +55,17 @@ function opt(name, def = null) {
 const DRY = argv.includes('--dry')
 const today = () => new Date().toLocaleDateString('sv-SE')
 
-function readQueue() {
-  try { return JSON.parse(fs.readFileSync(QUEUE, 'utf8')) } catch { return { entries: [] } }
+function readQueue() { return { entries: readEntries(QUEUE) } }
+function writeQueue(q) { writeEntries(QUEUE, q.entries) }
+const TARGET_ID = String(opt('id') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : ''))
+// Hold the same lock for API edits, CLI writes and the complete publication.
+if (['draft', 'approve', 'reject', 'publish'].includes(cmd)) {
+  const release = lockQueue(QUEUE)
+  process.once('exit', release)
 }
-function writeQueue(q) {
-  fs.mkdirSync(STATE_DIR, { recursive: true })
-  fs.writeFileSync(QUEUE, JSON.stringify(q, null, 2), 'utf8')
+function selectEntry(status) {
+  const entries = q.entries.filter(e => e.status === status && (!TARGET_ID || e.id === TARGET_ID))
+  return entries[entries.length - 1]
 }
 
 // ── 素材提取：给她写作时看，不直接当正文 ─────────────────────────
@@ -155,13 +161,20 @@ function publishToBilibili(text) {
     '--text', text, '--go', '--auto',
   ], { encoding: 'utf8', timeout: 120000 })
   const m = r.match(/dyn_id=(\d+)/)
-  return { ok: /✅ 已发布/.test(r), dynId: m ? m[1] : null, raw: r }
+  return { ok: /✅ 已发布/.test(r) && !!m, dynId: m ? m[1] : null, raw: r }
 }
 
 // ── 命令 ────────────────────────────────────────────────────────
 const q = readQueue()
 
-if (cmd === 'material') {
+if (cmd === 'revise') {
+  const file = opt('file')
+  if (!TARGET_ID || typeof file !== 'string') { console.error('用法：daily-diary revise --id <被驳回稿id> --file <本地文本稿>'); process.exit(2) }
+  const text = cleanForDynamic(fs.readFileSync(file, 'utf8'))
+  const entry = createRevision(QUEUE, { id: TARGET_ID, text })
+  console.log(`已保存修订稿：${entry.id}（pending · revisionOf=${entry.revisionOf}）`)
+  try { logEvent('diary-revision', { target: entry.id, note: '驳回后重写，等待重新审核', meta: { revisionOf: entry.revisionOf } }) } catch {}
+} else if (cmd === 'material') {
   const text = readLocalDiary()
   const date = today()
   const watched = extractWatched(text, date)
@@ -181,6 +194,11 @@ if (cmd === 'material') {
   if (narrative.length) {
     console.log(`\n她今天的笔记：`)
     console.log(narrative.join('\n'))
+  }
+  const rejected = q.entries.filter(e => e.status === 'rejected').slice(-5)
+  if (rejected.length) {
+    console.log('\n待重写意见（写新稿，仍需重新审核）：')
+    for (const entry of rejected) console.log(`  · ${entry.id}：${entry.reason || '未说明'}\n    原稿：${entry.text}`)
   }
   console.log(`\n字数上限：${MAX_CHARS} 字`)
 } else if (cmd === 'draft') {
@@ -260,9 +278,9 @@ if (cmd === 'material') {
   try { logEvent('diary-push', { note: `文档${docOk ? '✓' : '✗'} 飞书${dmOk ? '✓' : '✗'}`, meta: { docOk, dmOk, chars: e.chars } }) } catch {}
   if (!docOk && !dmOk) process.exit(1)
 } else if (cmd === 'approve') {
-  const pending = q.entries.filter((e) => e.status === 'pending')
-  if (!pending.length) { console.log('没有待审的日记。'); process.exit(0) }
-  const e = pending[pending.length - 1]
+  const e = selectEntry('pending')
+  if (!e) { console.error('没有找到指定待审日记。'); process.exit(1) }
+  if (!String(e.text || '').trim() || e.text.length > MAX_CHARS) { console.error('正文为空或超过500字，不能批准。'); process.exit(2) }
   e.status = 'approved'
   e.approvedAt = new Date().toISOString()
   writeQueue(q)
@@ -270,9 +288,8 @@ if (cmd === 'material') {
   try { logEvent('diary-approve', { note: `${e.chars} 字`, meta: { chars: e.chars } }) } catch {}
 } else if (cmd === 'reject') {
   const why = opt('why', '(未说明)')
-  const pending = q.entries.filter((e) => e.status === 'pending')
-  if (!pending.length) { console.log('没有待审的日记。'); process.exit(0) }
-  const e = pending[pending.length - 1]
+  const e = selectEntry('pending')
+  if (!e) { console.error('没有找到指定待审日记。'); process.exit(1) }
   e.status = 'rejected'
   e.reason = String(why)
   e.rejectedAt = new Date().toISOString()
@@ -280,9 +297,9 @@ if (cmd === 'material') {
   console.log(`已驳回：${e.date} · ${why}`)
   try { logEvent('diary-reject', { note: String(why).slice(0, 80) }) } catch {}
 } else if (cmd === 'publish') {
-  const approved = q.entries.filter((e) => e.status === 'approved')
-  if (!approved.length) { console.log('没有已批准的。先 approve。'); process.exit(1) }
-  const e = approved[approved.length - 1]
+  const e = selectEntry('approved')
+  if (!e) { console.error('没有找到指定已批准日记。先 approve。'); process.exit(1) }
+  if (!String(e.text || '').trim() || e.text.length > MAX_CHARS) { console.error('正文为空或超过500字，不能发布。'); process.exit(2) }
   if (DRY) { console.log('[dry] 将要发布：\n' + e.text); process.exit(0) }
   const r = publishToBilibili(e.text)
   if (r.ok) {
@@ -300,13 +317,14 @@ if (cmd === 'material') {
 } else {
   console.log(`每日潜水日志（她写，脚本管字数和发布）
 
+  node daily-diary.mjs revise --id <id> --file <稿件>  驳回后创建待审修订版
   node daily-diary.mjs material               打印今天的素材（给她写作参考）
   node daily-diary.mjs draft --file <路径>    收下她写的稿，入待审
   node daily-diary.mjs show                   看待审
   node daily-diary.mjs push                   推飞书（文档 + 私聊）
   node daily-diary.mjs approve                批准
   node daily-diary.mjs reject --why "原因"     驳回
-  node daily-diary.mjs publish                发到 B 站动态
+  node daily-diary.mjs publish [id]           发布指定稿（缺省为最近已批准稿）
 
 字数上限：${MAX_CHARS} 字
 文档：${DOC_URL}`)

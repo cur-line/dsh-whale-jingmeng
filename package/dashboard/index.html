@@ -498,6 +498,20 @@ window.filterEvents = function(f, btn) {
 // ── 加载数据 ─────────────────────────────────────────────────────
 async function boot() {
   const bootEl = document.getElementById('boot');
+
+  // ① 内联数据（单文件双击打开时由 collect.mjs 注入）
+  if (window.__DASHBOARD_DATA__) { render(window.__DASHBOARD_DATA__); return; }
+
+  // ② 插件 API（面板跑在 DSH 里时走这条，数据实时、不用管文件）
+  try {
+    const r = await fetch('/dsh-bili/api/dashboard?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      if (j.ok && j.data) { render(j.data); return; }
+    }
+  } catch { /* 不在 DSH 环境，正常，落到 ③ */ }
+
+  // ③ 同目录 data.json（本地起 http.server 时）
   try {
     const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);

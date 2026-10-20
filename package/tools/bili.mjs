@@ -34,6 +34,12 @@ const map = {
   whois: ['diagnostics/whois.mjs', '按 mid 查昵称（@ 人前先核准名字）'],
   'daily-diary': ['commands/daily-diary.mjs', '每日潜水日志：material / draft / show / push / approve / reject / publish'],
   interact: ['commands/interact.mjs', '视频互动：like / coin / fav / triple / status'],
+  review: ['commands/review.mjs', '复盘：账号数据 + 她做了什么 + 已发日记表现（只读）：--days 7 --json'],
+  create: ['commands/create.mjs', '创作：brief 生成简报 / outline 生成分镜骨架 / list / show'],
+  // —— 小红书（与 B 站平行的一套，命令原样透传给 tools/xhs.mjs）——
+  //   为什么做成代理而不是复制一份：xhs 自己有一套命令表，
+  //   两处维护必然漂移；这里只做入口统一，`node bili.mjs xhs feed` 等价于 `node xhs.mjs feed`。
+  xhs: ['xhs.mjs', '小红书：feed / read / like / fav / comment / note / diary / me / doctor / login'],
   // —— 写（会真的发出去；都必须显式 --dry 或 --go） ——
   'dm-await': ['commands/dm-await.mjs', '私信监听（只认主人；命中打印 DM_HIT）'],
   fav: ['commands/fav.mjs', '收藏（我想留着）：判据强制 · --list / --check / <BV> --reason … --dry|--go'],

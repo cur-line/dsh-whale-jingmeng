@@ -62,13 +62,22 @@ const stamp = new Date().toLocaleString('zh-CN', {
   month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
 })
 
+// 日记云文档 token 也一律从配置/环境变量读，不写死在源码里（跟上面 open_id 同理）
+const DIARY_DOC_TOKEN = (() => {
+  if (process.env.JINGMENG_DIARY_DOC_TOKEN) return process.env.JINGMENG_DIARY_DOC_TOKEN
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(HOME, '.dsh', 'bili-whale.config.json'), 'utf8'))
+    return String(c?.notify?.diaryDocToken ?? '')
+  } catch { return '' }
+})()
+
 const body = [
   `🐳 鲸檬 · ${stamp}`,
   '',
   text,
   '',
   '——',
-  '日记：https://my.feishu.cn/docx/__DIARY_DOC_TOKEN__',
+  DIARY_DOC_TOKEN ? `日记：https://my.feishu.cn/docx/${DIARY_DOC_TOKEN}` : '日记（未配置云文档）',
 ].join('\n')
 
 if (DRY) {
