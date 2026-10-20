@@ -1,0 +1,32 @@
+# 依赖与构建产物
+node_modules/
+*.log
+
+# 敏感：凭据绝不上传
+.bili-ai/
+credentials.json
+secrets.json
+*.cookie
+
+# 运行时数据
+whale-night.json
+whale-log.jsonl
+whale-diary.md
+whale-diary-private.md
+*diary-queue.json
+quota.json
+feedback.json
+favorites.json
+whale-notify-fallback.log
+
+# 抽帧与截图产物
+shots/
+*.jpg.tmp
+
+# macOS
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+.dsh-ops-*.lock

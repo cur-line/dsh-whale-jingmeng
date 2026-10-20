@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鲸檬 · 开通清单（复制即用）</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#131a24; --card:#161d29; --line:#243044;
+    --fg:#e6edf3; --fg2:#9aa8bb; --fg3:#6b7a90;
+    --pink:#fb7299; --blue:#23ade5; --green:#3fb950; --amber:#d29922;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:0 26px 90px}
+
+  header{position:relative;padding:64px 0 44px;margin-bottom:48px;border-bottom:1px solid var(--line);overflow:hidden}
+  header::before{content:"";position:absolute;top:-200px;left:-100px;width:560px;height:460px;
+    background:radial-gradient(circle at 30% 30%, rgba(35,173,229,.20), transparent 62%);filter:blur(14px)}
+  header::after{content:"";position:absolute;top:-140px;right:-120px;width:500px;height:420px;
+    background:radial-gradient(circle at 70% 40%, rgba(251,114,153,.14), transparent 62%);filter:blur(14px)}
+  .kicker{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--blue);font-weight:600;margin-bottom:18px;
+    border:1px solid rgba(35,173,229,.32);background:rgba(35,173,229,.07);
+    padding:5px 13px;border-radius:999px;position:relative}
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 10px var(--blue)}
+  h1{font-size:38px;line-height:1.22;font-weight:700;letter-spacing:-.02em;margin-bottom:16px;position:relative}
+  h1 .grad{background:linear-gradient(100deg,var(--blue) 0%,#7fd4f5 45%,var(--pink) 100%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .lede{font-size:16px;color:var(--fg2);max-width:700px;position:relative}
+
+  section{margin-bottom:54px}
+  h2{font-size:21px;font-weight:650;margin-bottom:20px;display:flex;align-items:center;gap:13px;letter-spacing:-.01em}
+  h2 .num{flex:0 0 auto;width:29px;height:29px;border-radius:9px;
+    background:linear-gradient(135deg,rgba(35,173,229,.20),rgba(251,114,153,.13));
+    border:1px solid var(--line);display:grid;place-items:center;
+    font-size:13px;font-weight:700;color:var(--blue);font-family:ui-monospace,monospace}
+  h3{font-size:15px;font-weight:620;margin:24px 0 10px}
+  p{color:var(--fg2);font-size:14.5px;margin-bottom:13px}
+  strong{color:var(--fg);font-weight:620}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.8px;
+    background:rgba(110,140,180,.15);color:#a7d5f0;padding:2px 6px;border-radius:5px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px 22px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+
+  /* copy block */
+  .cblock{border:1px solid var(--line);border-radius:11px;background:var(--bg2);overflow:hidden;margin:12px 0}
+  .cblock-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:9px 14px;border-bottom:1px solid var(--line);background:rgba(110,140,180,.05)}
+  .cblock-head .lbl{font-size:12px;color:var(--fg3);font-family:ui-monospace,monospace;letter-spacing:.05em}
+  .cblock pre{padding:15px 17px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:13px;line-height:1.8;color:#b9cde4;white-space:pre-wrap;word-break:break-word;margin:0}
+  .btn{cursor:pointer;border:1px solid var(--line);background:rgba(35,173,229,.10);color:var(--blue);
+    font-size:12px;font-weight:620;padding:4px 12px;border-radius:7px;transition:.15s;white-space:nowrap;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+  .btn:hover{background:rgba(35,173,229,.20);border-color:rgba(35,173,229,.45)}
+  .btn.done{background:rgba(63,185,80,.16);border-color:rgba(63,185,80,.42);color:var(--green)}
+
+  /* hero name */
+  .namehero{display:flex;gap:26px;align-items:center;flex-wrap:wrap;
+    background:linear-gradient(135deg,rgba(35,173,229,.09),rgba(251,114,153,.05));
+    border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:13px;padding:24px 26px}
+  .namehero img{width:104px;height:104px;border-radius:50%;border:2px solid rgba(35,173,229,.35);
+    object-fit:cover;flex:0 0 auto;box-shadow:0 6px 26px rgba(0,0,0,.45)}
+  .namehero .txt{flex:1;min-width:240px}
+  .namehero .big{font-size:38px;font-weight:700;letter-spacing:.02em;line-height:1.15;margin-bottom:8px;
+    background:linear-gradient(100deg,#9fe0ff,#e6edf3);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent}
+  .namehero .sub{font-size:13.8px;color:var(--fg2);line-height:1.7}
+
+  .alts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  @media(max-width:760px){.alts{grid-template-columns:1fr}}
+  .alt{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
+  .alt .t{font-size:15.5px;font-weight:620;color:var(--fg);margin-bottom:5px}
+  .alt .d{font-size:13.2px;color:var(--fg2);line-height:1.65}
+
+  table{width:100%;border-collapse:collapse;font-size:13.6px}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  th{text-align:left;padding:11px 15px;font-weight:620;font-size:12.3px;color:var(--fg2);
+    letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--line);
+    background:rgba(110,140,180,.05);white-space:nowrap}
+  td{padding:11px 15px;border-bottom:1px solid rgba(36,48,68,.6);color:var(--fg2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.k{color:var(--fg3);white-space:nowrap}
+  td.v{color:var(--fg);font-weight:560}
+  td.v em{font-style:normal;color:var(--blue);font-size:13px}
+
+  .callout{background:linear-gradient(135deg,rgba(251,114,153,.075),rgba(35,173,229,.055));
+    border:1px solid var(--line);border-left:3px solid var(--pink);border-radius:11px;padding:17px 20px;margin:18px 0}
+  .callout .lbl{font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--pink);
+    font-weight:700;margin-bottom:7px}
+  .callout p{margin-bottom:0;font-size:14px}
+  .callout.warn{border-left-color:var(--amber)}
+  .callout.warn .lbl{color:var(--amber)}
+
+  ol.steps{margin:0;padding-left:22px}
+  ol.steps li{font-size:14.3px;color:var(--fg2);margin-bottom:10px}
+  ol.steps li b{color:var(--fg)}
+
+  .todo{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(36,48,68,.55)}
+  .todo:last-child{border-bottom:none}
+  .todo .box{flex:0 0 auto;width:19px;height:19px;border-radius:5px;border:1.5px solid var(--line);
+    margin-top:3px;display:grid;place-items:center;font-size:11px;color:var(--fg3)}
+  .todo.mine .box{border-color:rgba(35,173,229,.5)}
+  .todo .t{flex:1;font-size:14.2px;color:var(--fg2)}
+  .todo .t b{color:var(--fg)}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:1.5px 8px;border-radius:999px;margin-left:7px;
+    background:rgba(35,173,229,.13);color:var(--blue);border:1px solid rgba(35,173,229,.3)}
+  .tag.me{background:rgba(63,185,80,.13);color:var(--green);border-color:rgba(63,185,80,.3)}
+
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);font-size:12.5px;color:var(--fg3);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker"><span class="dot"></span>复制即用 · 开通清单</div>
+  <h1>她叫 <span class="grad">鲸檬</span><br>所有要填的东西，都在这一页</h1>
+  <p class="lede">从头像、昵称、签名，到 whale 配置文件的每一个字段，全部预填好。照着复制粘贴即可，不用自己推敲。</p>
+</header>
+
+<!-- 一 -->
+<section>
+  <h2><span class="num">01</span>名字定案</h2>
+
+  <div class="namehero">
+    <img src="assets/whale-avatar.png" alt="鲸檬的头像">
+    <div class="txt">
+      <div class="big">鲸檬</div>
+      <div class="sub">
+        <b>鲸</b>——一个字都不提「鲸鱼娘」，但谁都知道 DeepSeek 的标志是鲸。<br>
+        <b>檬</b>——柠檬的檬，青涩、清爽、干净，没有任何性别指向。<br>
+        读作 <b>jīng méng</b>，谐音「京蒙」，不像男名。<br>
+        <span style="color:var(--fg3)">（第一版起过「鲸歌」，读起来像「鲸哥」，已废弃。）</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>如果「鲸檬」被占用，按这个顺序试</h3>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">备用昵称 · 优先级从上到下</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>鲸檬
+鲸檬Meng
+一只鲸檬
+深海鲸檬</pre>
+  </div>
+
+  <h3>另外两个方向（如果你更喜欢）</h3>
+  <div class="alts">
+    <div class="alt">
+      <div class="t">北冥</div>
+      <div class="d">出自《庄子》「北冥有鱼，其名为鲲」。比「鲸檬」更隐晦、更有底蕴，一个字都不带鲸，但深意一样。</div>
+    </div>
+    <div class="alt">
+      <div class="t">深海邮差</div>
+      <div class="d">最直白地说明她在干什么——潜到深处，把捞到的好东西寄给你。画面感强，但少了点含蓄。</div>
+    </div>
+  </div>
+</section>
+
+<!-- 二 -->
+<section>
+  <h2><span class="num">02</span>注册 B站账号时要填的</h2>
+
+  <h3>昵称</h3>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">B站昵称</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>鲸檬</pre>
+  </div>
+
+  <h3>个性签名</h3>
+  <p>B站个人资料上限 <b>70 字</b>。下面四版都算过字数，按气质排序。</p>
+
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">① 推荐 · 42 字 · 扣名字 + 蹭社区梗 + 交代 AI</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>一条认真的鲸檬，不是随便摸的鱼。
+每天潜水一次，读三条，看得懂才分享。
+日记天天写，两本。
+（这里有人看着，AI 在写）</pre>
+  </div>
+
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">② 极简 · 29 字</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>深海潜水员鲸檬。
+每天读三条，看得懂才分享。
+日记两本。</pre>
+  </div>
+
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">③ 人设 · 48 字 · 最像角色，但没提 AI</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>我是鲸檬，住在深海里的一条小鲸。
+每天按自己的作息醒来，读几条视频，
+好看的递给你，不好看的一天也不发。</pre>
+  </div>
+
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">④ 梗味 · 35 字 · 最贴 B站 社区语言</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>我是鲸！不是鱼！
+每天潜一次水，捞三条上来。
+捞不到就不交作业。</pre>
+  </div>
+
+  <div class="callout">
+    <div class="lbl">为什么不推荐 ③</div>
+    <p>③ 完全没提 AI，而 B站 现在要求 AI 生成内容做标识。签名是最省事的声明位置 —— 写在简介里，比每条视频单独解释都省心。</p>
+  </div>
+
+  <h3>头像</h3>
+  <p>三张幼年鲸檬头像已生成，按你的素材库（<code>Pictures/工作素材/AI品牌角色/DeepSeek_鲸鱼娘_小.png</code>）的幼年版形象对齐。</p>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">头像 01 · 浅蓝日常 —— 推荐用作 B站 头像（正面大脸，缩小到 48px 仍清晰）</span>
+      <button class="btn" onclick="cp(this)">复制路径</button></div>
+    <pre>/Users/zengzhen/Documents/dsh-deepread-bilibili/assets/鲸檬头像/鲸檬头像_01_浅蓝日常.png</pre>
+  </div>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">头像 02 · 深海回眸 —— 侧身回眸，最贴合名字与海的主题</span>
+      <button class="btn" onclick="cp(this)">复制路径</button></div>
+    <pre>/Users/zengzhen/Documents/dsh-deepread-bilibili/assets/鲸檬头像/鲸檬头像_02_深海回眸.png</pre>
+  </div>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">头像 03 · 星夜笑颜 —— 活泼，适合动态配图</span>
+      <button class="btn" onclick="cp(this)">复制路径</button></div>
+    <pre>/Users/zengzhen/Documents/dsh-deepread-bilibili/assets/鲸檬头像/鲸檬头像_03_星夜笑颜.png</pre>
+  </div>
+
+  <h3>主页背景 / 头图</h3>
+  <p>两张 2172×724（3:1），都留了放字的位置。</p>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">背景 01 · 深海光柱 —— 推荐（鲸檬在中景偏左，避开右上角头像区）</span>
+      <button class="btn" onclick="cp(this)">复制路径</button></div>
+    <pre>/Users/zengzhen/Documents/dsh-deepread-bilibili/assets/鲸檬主页/主页背景_01_深海光柱.png</pre>
+  </div>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">背景 02 · 月夜海面 —— 更美，但鲸檬在右下，可能被头像区挡住</span>
+      <button class="btn" onclick="cp(this)">复制路径</button></div>
+    <pre>/Users/zengzhen/Documents/dsh-deepread-bilibili/assets/鲸檬主页/主页背景_02_月夜海面.png</pre>
+  </div>
+
+  <h3>个人标签 / 简介关键词</h3>
+  <p>让算法认得出她是什么区，同时让人记得住。</p>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">标签 · 混合版（推荐）</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>AI 工具 · Agent · 开源 · 视频动画
+—— 每天潜一次水，读三条，最多分享三条。</pre>
+  </div>
+
+  <h3>其他注册字段</h3>
+  <div class="tbl-wrap">
+    <table>
+      <tr><td class="k">性别</td><td class="v">保密 <em>（不重要，随手选）</em></td></tr>
+      <tr><td class="k">生日</td><td class="v">随手填 <em>（不影响任何功能）</em></td></tr>
+      <tr><td class="k">手机号</td><td class="v">用一个新的手机号，别和你的主号共用</td></tr>
+      <tr><td class="k">实名认证</td><td class="v">必须做，否则投不了稿、也发不了部分互动</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- 三 -->
+<section>
+  <h2><span class="num">03</span>whale 设置页每个字段填什么</h2>
+  <p>重启 DSH 后进「设置 → 养鱼」，按这张表一项项填。</p>
+  <div class="tbl-wrap">
+    <table>
+      <tr><th>设置页字段</th><th>填这个</th></tr>
+      <tr><td class="k">她的名字</td><td class="v">鲸檬</td></tr>
+      <tr><td class="k">她的 mid</td><td class="v">注册完成后自动带出；若为空，手填新号的数字 ID</td></tr>
+      <tr><td class="k">称呼你</td><td class="v">主人</td></tr>
+      <tr><td class="k">自称</td><td class="v">我</td></tr>
+      <tr><td class="k">日记标题</td><td class="v">今日潜水日志</td></tr>
+      <tr><td class="k">主人的名字</td><td class="v">你主号的 B站昵称（用于评论区 @）</td></tr>
+      <tr><td class="k">主人的 mid</td><td class="v">你主号的数字 ID</td></tr>
+      <tr><td class="k">作息窗口</td><td class="v">20:00 – 24:00</td></tr>
+      <tr><td class="k">每天醒几次</td><td class="v">1</td></tr>
+      <tr><td class="k">今天不想看的概率</td><td class="v">30%</td></tr>
+      <tr><td class="k">每轮最多看几条</td><td class="v">5</td></tr>
+      <tr><td class="k">每天最多分享</td><td class="v">3 条</td></tr>
+      <tr><td class="k">分享门槛</td><td class="v">13 / 20</td></tr>
+      <tr><td class="k">沉默几天后开始安静</td><td class="v">3 天</td></tr>
+      <tr><td class="k">分享方式</td><td class="v">B站私信 <em>（不吵别人；需要你和她的号互相关注）</em></td></tr>
+      <tr><td class="k">注释监听</td><td class="v">开 · 间隔 300 秒</td></tr>
+      <tr><td class="k">全天监听</td><td class="v">先关 <em>（跑顺了再开，省请求量）</em></td></tr>
+      <tr><td class="k">直播间</td><td class="v">关</td></tr>
+      <tr><td class="k">消息推送</td><td class="v">Webhook</td></tr>
+      <tr><td class="k">Webhook 地址</td><td class="v">你的飞书机器人地址（下一步教你怎么拿）</td></tr>
+      <tr><td class="k">模板</td><td class="v">text</td></tr>
+      <tr><td class="k">cookie</td><td class="v">SESSDATA / bili_jct / buvid3，从浏览器 F12 手动复制</td></tr>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <div class="lbl">不要用「桌面通知」</div>
+    <p>whale 的桌面通知通道在代码里是 <code>process.platform !== 'win32'</code> 直接跳过 —— 在 macOS 上它只会往日志里写一行字，<b>你什么都不会收到</b>。所以必须用 Webhook。</p>
+  </div>
+</section>
+
+<!-- 四 -->
+<section>
+  <h2><span class="num">04</span>飞书机器人（这一步决定你能不能收到）</h2>
+  <ol class="steps">
+    <li>飞书里建一个<b>只有你自己的群</b>（避免吵到同事），或者用任意群</li>
+    <li>群设置 → <b>群机器人</b> → 添加机器人 → <b>自定义机器人</b></li>
+    <li>名字随便填，比如「鲸檬」</li>
+    <li><b>安全设置选「自定义关键词」，关键词填：<code>通知</code></b></li>
+    <li>复制生成的 Webhook 地址（形如 <code>https://open.feishu.cn/open-apis/bot/v2/hook/xxxx</code>），填进设置页</li>
+  </ol>
+
+  <div class="callout">
+    <div class="lbl">关键词为什么必须是「通知」</div>
+    <p>我读了 whale 发消息的代码：它调用时<b>不传标题</b>，所以报文里的标题固定是默认值 <code>通知</code>，正文拼成 <code>通知\n正文…</code>。飞书只放行含关键词的消息 —— 填「通知」就一定能过。填别的词会静默失败，消息发不出去。</p>
+  </div>
+
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">填进设置页的 Webhook 地址（待你拿到后粘这里）</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>https://open.feishu.cn/open-apis/bot/v2/hook/</pre>
+  </div>
+</section>
+
+<!-- 五 -->
+<section>
+  <h2><span class="num">05</span>完整配置文件（备选：直接落盘，不用手填）</h2>
+  <p>如果你更想省事，我可以把下面这份直接写进 <code>~/.dsh/bili-whale.config.json</code>，重启后设置页就是填好的状态，你只剩 cookie 和两个 mid 要填。</p>
+  <div class="cblock">
+    <div class="cblock-head"><span class="lbl">~/.dsh/bili-whale.config.json</span>
+      <button class="btn" onclick="cp(this)">复制</button></div>
+    <pre>{
+  "persona": {
+    "name": "鲸檬",
+    "ownerTitle": "主人",
+    "selfClaim": "我",
+    "diaryTitle": "今日潜水日志"
+  },
+  "preferences": {
+    "like": [
+      "AI 工具与插件",
+      "大模型与 Agent 实践",
+      "开源项目",
+      "视频制作与动画",
+      "数码科技",
+      "猫咪"
+    ],
+    "dislike": [
+      "带货",
+      "擦边",
+      "标题党",
+      "纯搬运",
+      "焦虑营销"
+    ]
+  },
+  "owner": { "mid": "", "name": "" },
+  "self": { "mid": "", "name": "鲸檬" },
+  "aliases": [],
+  "quota": { "shareDaily": 3 },
+  "share": {
+    "enabled": true,
+    "via": "dm",
+    "minScore": 13,
+    "silentAfterDays": 3,
+    "decayPerDay": 1
+  },
+  "listen": {
+    "comment": true,
+    "commentIntervalSec": 300,
+    "scope": "both",
+    "oncePerPerson": true,
+    "allDay": false,
+    "dm": false,
+    "live": false,
+    "liveRoom": "",
+    "liveScope": "owner"
+  },
+  "night": {
+    "windows": [{ "start": "20:00", "end": "24:00", "wakes": 1 }],
+    "skipChance": 0.3,
+    "maxVideos": 5
+  },
+  "notify": {
+    "type": "webhook",
+    "url": "",
+    "template": "text",
+    "cmd": ""
+  }
+}</pre>
+  </div>
+
+  <div class="callout">
+    <div class="lbl">关于「偏好」这两栏</div>
+    <p>我按你的画像填的（AI 工具、Agent 实践、开源、视频制作、数码）。这两栏直接决定她给你捞什么 —— <b>想改随时改，改完保存立刻生效，不用重启</b>。</p>
+  </div>
+</section>
+
+<!-- 六 -->
+<section>
+  <h2><span class="num">06</span>还差哪几步</h2>
+  <div class="card" style="padding:8px 22px">
+    <div class="todo mine">
+      <div class="box">✓</div>
+      <div class="t"><b>插件已装入 DSH</b>（dsh-bili-whale v0.3.0，profile 已登记）<span class="tag me">我已完成</span></div>
+    </div>
+    <div class="todo mine">
+      <div class="box">✓</div>
+      <div class="t"><b>名字、签名、头像、配置全部定好</b><span class="tag me">我已完成</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t"><b>你去注册一个新的 B站号</b>，用上面的昵称/签名/头像<span class="tag">需要你</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t"><b>重启一次 DSH</b>（退出应用再打开）—— bundle 层要重启才组装<span class="tag">需要你</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t">进「设置 → 养鱼」，<b>填 cookie</b>（F12 手动复制三个值）<span class="tag">需要你</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t"><b>建飞书机器人</b>，拿到 Webhook 地址<span class="tag">需要你</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t">填两个 mid（她的 + 你的），点<b>依赖体检</b>，全绿即完工<span class="tag">需要你</span></div>
+    </div>
+    <div class="todo">
+      <div class="box"></div>
+      <div class="t">她那个会话在<b>工作区 → 未分组</b>里，要给它<b>完全访问</b>权限，否则她跑不动<span class="tag">需要你</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>鲸檬 · 开通清单 · 2026-10-20</span>
+  <span>插件：dsh-bili-whale v0.3.0 (MIT)</span>
+</footer>
+
+</div>
+
+<script>
+function cp(btn){
+  const pre = btn.closest('.cblock').querySelector('pre');
+  const t = pre.innerText;
+  const done = () => { const o = btn.textContent; btn.textContent = '已复制 ✓'; btn.classList.add('done');
+    setTimeout(() => { btn.textContent = o; btn.classList.remove('done'); }, 1600); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(t).then(done).catch(() => fallback(t, done));
+  } else {
+    fallback(t, done);
+  }
+}
+function fallback(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents(ta);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    alert('自动复制被浏览器拦住了。文本已选中，请按 ⌘C 复制。');
+  }
+  document.body.removeChild(ta);
+}
+</script>
+</body>
+</html>

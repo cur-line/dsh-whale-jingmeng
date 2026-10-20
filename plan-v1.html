@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-deepread-bilibili · AI 自主运营 B站账号 · 实施方案 v1</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#131a24; --card:#161d29; --line:#243044;
+    --fg:#e6edf3; --fg2:#9aa8bb; --fg3:#6b7a90;
+    --pink:#fb7299; --blue:#23ade5; --green:#3fb950; --amber:#d29922; --red:#f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px 100px}
+
+  /* HERO */
+  header{
+    position:relative; padding:72px 0 52px; margin-bottom:56px;
+    border-bottom:1px solid var(--line); overflow:hidden;
+  }
+  header::before{
+    content:""; position:absolute; top:-220px; left:-120px; width:620px; height:520px;
+    background:radial-gradient(circle at 30% 30%, rgba(251,114,153,.20), transparent 62%);
+    filter:blur(14px); pointer-events:none;
+  }
+  header::after{
+    content:""; position:absolute; top:-160px; right:-140px; width:560px; height:480px;
+    background:radial-gradient(circle at 70% 40%, rgba(35,173,229,.18), transparent 62%);
+    filter:blur(14px); pointer-events:none;
+  }
+  .kicker{
+    display:inline-flex; align-items:center; gap:9px;
+    font-size:12.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--pink); font-weight:600; margin-bottom:20px;
+    border:1px solid rgba(251,114,153,.32); background:rgba(251,114,153,.07);
+    padding:5px 13px; border-radius:999px; position:relative;
+  }
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--pink);box-shadow:0 0 10px var(--pink)}
+  h1{
+    font-size:40px; line-height:1.24; font-weight:700; letter-spacing:-.02em;
+    margin-bottom:18px; position:relative;
+  }
+  h1 .grad{
+    background:linear-gradient(100deg,var(--pink) 0%, #ff9ec4 42%, var(--blue) 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .lede{font-size:16.5px; color:var(--fg2); max-width:760px; position:relative}
+  .meta{
+    display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; position:relative;
+  }
+  .meta span{
+    font-size:12.5px; color:var(--fg2); background:var(--card);
+    border:1px solid var(--line); padding:5px 12px; border-radius:7px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+
+  /* SECTIONS */
+  section{margin-bottom:60px; scroll-margin-top:20px}
+  h2{
+    font-size:22px; font-weight:650; letter-spacing:-.01em; margin-bottom:22px;
+    display:flex; align-items:center; gap:13px;
+  }
+  h2 .num{
+    flex:0 0 auto; width:30px; height:30px; border-radius:9px;
+    background:linear-gradient(135deg, rgba(251,114,153,.18), rgba(35,173,229,.14));
+    border:1px solid var(--line);
+    display:grid; place-items:center; font-size:13px; font-weight:700;
+    color:var(--pink); font-family:ui-monospace,monospace;
+  }
+  h3{font-size:15.5px;font-weight:620;margin:26px 0 12px;color:var(--fg)}
+  p{color:var(--fg2);font-size:14.5px;margin-bottom:14px}
+  strong{color:var(--fg);font-weight:620}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.8px;
+    background:rgba(110,140,180,.15); color:#a7d5f0; padding:2px 6px; border-radius:5px;
+  }
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* CARDS */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.g2,.g3{grid-template-columns:1fr}}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:13px;
+    padding:20px 21px;
+  }
+  .card h4{font-size:14.5px;font-weight:620;margin-bottom:9px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:13.5px;margin-bottom:0;color:var(--fg2)}
+  .card ul{margin:9px 0 0;padding-left:17px}
+  .card li{font-size:13.5px;color:var(--fg2);margin-bottom:5px}
+
+  /* CALLOUT */
+  .callout{
+    background:linear-gradient(135deg, rgba(251,114,153,.075), rgba(35,173,229,.055));
+    border:1px solid var(--line); border-left:3px solid var(--pink);
+    border-radius:11px; padding:19px 22px; margin:20px 0;
+  }
+  .callout p{margin-bottom:0;color:var(--fg2);font-size:14.5px}
+  .callout .lbl{
+    font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--pink);font-weight:700;margin-bottom:8px;
+  }
+
+  /* TABLE */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+  th{
+    text-align:left;padding:13px 16px;font-weight:620;font-size:12.5px;
+    color:var(--fg2);letter-spacing:.05em;text-transform:uppercase;
+    border-bottom:1px solid var(--line);background:rgba(110,140,180,.05);
+  }
+  td{padding:13px 16px;border-bottom:1px solid rgba(36,48,68,.6);color:var(--fg2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td strong{color:var(--fg)}
+  .pill{
+    display:inline-block;font-size:11.5px;font-weight:600;padding:2.5px 9px;
+    border-radius:999px;white-space:nowrap;
+  }
+  .pill.pick{background:rgba(63,185,80,.14);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+  .pill.mid{background:rgba(210,153,34,.14);color:var(--amber);border:1px solid rgba(210,153,34,.3)}
+  .pill.weak{background:rgba(248,81,73,.12);color:var(--red);border:1px solid rgba(248,81,73,.26)}
+
+  /* ARCH */
+  .arch{
+    background:var(--bg2); border:1px solid var(--line); border-radius:13px;
+    padding:26px 24px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:12.6px; line-height:1.95; color:#a9bdd6; overflow-x:auto; white-space:pre;
+  }
+  .arch .hl{color:var(--pink);font-weight:600}
+  .arch .hl2{color:var(--blue);font-weight:600}
+  .arch .dim{color:var(--fg3)}
+
+  /* PHASES */
+  .phase{
+    border:1px solid var(--line); border-radius:13px; background:var(--card);
+    padding:0; margin-bottom:13px; overflow:hidden;
+  }
+  .phase-head{
+    display:flex; align-items:center; gap:13px; padding:16px 21px;
+    border-bottom:1px solid var(--line); background:rgba(110,140,180,.045);
+  }
+  .phase-tag{
+    font-family:ui-monospace,monospace; font-size:12px; font-weight:700;
+    padding:3px 10px; border-radius:6px; background:rgba(35,173,229,.14); color:var(--blue);
+    border:1px solid rgba(35,173,229,.28);
+  }
+  .phase-head h4{font-size:15px;font-weight:620;flex:1}
+  .phase-head .goal{font-size:12.5px;color:var(--fg3);font-family:ui-monospace,monospace}
+  .phase-body{padding:16px 21px 18px}
+  .phase-body ol{margin:0;padding-left:19px}
+  .phase-body li{font-size:13.8px;color:var(--fg2);margin-bottom:8px}
+  .phase-body li:last-child{margin-bottom:0}
+  .phase-body li b{color:var(--fg);font-weight:620}
+
+  /* CHECKLIST */
+  .q{
+    border:1px solid var(--line); border-radius:12px; background:var(--card);
+    padding:18px 21px; margin-bottom:12px; display:flex; gap:15px;
+  }
+  .q .n{
+    flex:0 0 auto; width:25px; height:25px; border-radius:50%;
+    background:rgba(251,114,153,.13); border:1px solid rgba(251,114,153,.34);
+    color:var(--pink); display:grid; place-items:center;
+    font-size:12px; font-weight:700; font-family:ui-monospace,monospace;
+  }
+  .q .body{flex:1}
+  .q .body h4{font-size:14.5px;font-weight:620;margin-bottom:7px}
+  .q .body p{font-size:13.5px;margin-bottom:9px}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opt{
+    font-size:13.2px;color:var(--fg2);padding:9px 13px;border-radius:8px;
+    background:rgba(110,140,180,.055);border:1px solid rgba(36,48,68,.8);
+  }
+  .opt b{color:var(--fg)}
+  .opt .rec{color:var(--green);font-weight:620;font-size:11.5px;margin-left:7px}
+
+  /* RISK */
+  .risk{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid rgba(36,48,68,.55)}
+  .risk:last-child{border-bottom:none}
+  .risk .ico{flex:0 0 auto;font-size:15px;width:22px;text-align:center;line-height:1.5}
+  .risk .txt{flex:1}
+  .risk .txt h4{font-size:14px;font-weight:620;margin-bottom:5px}
+  .risk .txt p{font-size:13.3px;margin-bottom:0}
+
+  footer{
+    margin-top:70px;padding-top:26px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--fg3);display:flex;justify-content:space-between;
+    flex-wrap:wrap;gap:12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker"><span class="dot"></span>实施方案 v1 · 决策已冻结</div>
+  <h1>让 AI 自己运营一个 B站账号<br><span class="grad">dsh-deepread-bilibili</span></h1>
+  <p class="lede">
+    复刻 <b>BV1pGnn67EC2</b>「DeepSeek鲸鱼娘」的能力：选题、脚本、视频、发布、互动、复盘全部由 AI 驱动，
+    人类只保留最后的审核与发布闸门。能力层直接复用成熟开源 MCP，插件本体只写编排、人格与风控。
+  </p>
+  <div class="meta">
+    <span>工作目录 /Users/zengzhen/Documents/dsh-deepread-bilibili</span>
+    <span>目标形态 DSH 插件（bundle）</span>
+    <span>参考 MCP adoresever/bilibili-mcp</span>
+    <span>状态 决策已冻结 · 待开工</span>
+  </div>
+</header>
+
+<!-- 1 -->
+<section>
+  <h2><span class="num">01</span>视频里到底在做什么</h2>
+  <p>我先把这个账号的<b>功能边界</b>还原出来，避免做偏。</p>
+  <div class="grid g2">
+    <div class="card">
+      <h4>🎬 Day 0 明确说的</h4>
+      <ul>
+        <li><b>AI 全权负责</b>：选题、脚本、视频、运营</li>
+        <li><b>人类只做两件事</b>：注册账号、审核发布</li>
+        <li><b>节奏固定</b>：每天 1 条视频 + 1 条「今日潜水日志」动态</li>
+        <li><b>数据全公开</b>：运营数据对外透明</li>
+        <li>形象由 AI 绘制，内容标注「含AI生成」</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>🌊 从周边生态看出的隐含能力</h4>
+      <ul>
+        <li><b>自主冲浪</b>：会自己刷首页/推荐/热门，不是等人喂题</li>
+        <li><b>自主评论</b>：会在别人视频下发评论互动</li>
+        <li><b>自我反思</b>：评论"怕路人厌烦"后主动优化自己的话术</li>
+        <li><b>稳定人设</b>：有性格、有情绪（摸鱼、生气、要 token）</li>
+        <li><b>长期记忆</b>：记得昨天说过什么、答应观众什么</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">
+    <div class="lbl">一句话定义</div>
+    <p>这不是一个"发视频脚本"，而是一个<b>会自己找活干、有记性、有人格的分身</b>。所以插件的重心不在"调用 API"，而在<b>编排 + 人格 + 闸门</b>这三件事上。</p>
+  </div>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2><span class="num">02</span>轮子调查：什么不用自己写</h2>
+  <p>按你的规矩，先查现成方案。结论是 <b>B站原子能力已经完全成熟，直接接</b>，自己只补编排层。</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr><th>候选</th><th>能力覆盖</th><th>形态</th><th>评价</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>adoresever/bilibili-mcp</strong><br><span style="color:var(--fg3);font-size:12.5px">116★ · 就是你说的那个</span></td>
+          <td>27 工具：登录3 / 采集7 / 发布5 / 分析6 / 互动5。<b>唯一同时覆盖"发视频+发动态+读数据+回评论"的</b></td>
+          <td>Python · stdio MCP</td>
+          <td><span class="pill pick">选它</span></td>
+        </tr>
+        <tr>
+          <td><strong>huccihuang/bilibili-mcp-server</strong><br><span style="color:var(--fg3);font-size:12.5px">190★</span></td>
+          <td>4 个工具（搜索 + 弹幕），<b>不能发布</b></td>
+          <td>Python · stdio</td>
+          <td><span class="pill weak">只够采集</span></td>
+        </tr>
+        <tr>
+          <td><strong>@xzxzzx/bilibili-mcp</strong><br><span style="color:var(--fg3);font-size:12.5px">34★ · npm 可直装</span></td>
+          <td>元数据 / 字幕 / 评论总结，偏"读"不偏"发"</td>
+          <td>Node · npm</td>
+          <td><span class="pill mid">备选补充</span></td>
+        </tr>
+        <tr>
+          <td><strong>bilibili/carocut</strong><br><span style="color:var(--fg3);font-size:12.5px">B站官方开源</span></td>
+          <td>多 Agent 视频制作：PDF/图片/文本 → 成片，基于 Remotion</td>
+          <td>独立系统</td>
+          <td><span class="pill mid">做视频时参考</span></td>
+        </tr>
+        <tr>
+          <td><strong>social-auto-upload</strong><br><span style="color:var(--fg3);font-size:12.5px">多平台</span></td>
+          <td>一键分发抖音/TikTok/B站/快手/小红书</td>
+          <td>Playwright 脚本</td>
+          <td><span class="pill mid">多平台时再上</span></td>
+        </tr>
+        <tr>
+          <td><strong>DSH 自带视频技能</strong><br><span style="color:var(--fg3);font-size:12.5px">remotion / hyperframes / MiniMax TTS</span></td>
+          <td>纯代码生成真视频、配音、字幕、封面</td>
+          <td>已装可用</td>
+          <td><span class="pill pick">用这个出片</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:16px;font-size:13.5px">
+    另外两个值得记下的旁证：<a href="https://www.youtube.com/watch?v=6NM3Fu9MKjk">「虾哔哩自动化运营」</a>演示了 OpenClaw 同时接入 bilibili-mcp 做自动化运营；
+    <a href="https://github.com/JuneYaooo/awesome-ai-media-cn">awesome-ai-media-cn</a> 是同类工具的全景索引，后续选型可以直接查它。
+  </p>
+</section>
+
+<!-- 3 -->
+<section>
+  <h2><span class="num">03</span>架构：三层分工</h2>
+  <p>外面那一圈全是现成的，插件只负责中间那层。</p>
+  <div class="arch">
+<span class="dim">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="hl">DSH Web GUI</span>  运营看板 · 待审队列 · 潜水日志 · 数据曲线      <span class="dim">│</span>
+<span class="dim">└───────────────────────────┬─────────────────────────────────┘</span>
+                            <span class="dim">│</span>
+<span class="dim">┌───────────────────────────▼─────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="hl">dsh-deepread-bilibili  （插件本体 = 要写的东西）</span>              <span class="dim">│</span>
+<span class="dim">│</span>                                                             <span class="dim">│</span>
+<span class="dim">│</span>  ① <span class="hl2">人格内核</span>  人设卡：性格 / 口头禅 / 底线 / 禁区            <span class="dim">│</span>
+<span class="dim">│</span>  ② <span class="hl2">长期记忆</span>  做过什么 / 观众说过什么 / 欠谁一个承诺        <span class="dim">│</span>
+<span class="dim">│</span>  ③ <span class="hl2">运营循环</span>  选题评分 → 脚本 → 分镜 → 自检 → 交审         <span class="dim">│</span>
+<span class="dim">│</span>  ④ <span class="hl2">审核闸门</span>  AI 出稿 → GUI 待审卡片 → 你点通过才发          <span class="dim">│</span>
+<span class="dim">│</span>  ⑤ <span class="hl2">风控卫士</span>  限速 / 去重 / 敏感词 / 评论自省 / 熔断          <span class="dim">│</span>
+<span class="dim">│</span>  ⑥ <span class="hl2">调度器</span>    每天定时跑一轮（含失败重试与断点续跑）          <span class="dim">│</span>
+<span class="dim">└───────┬──────────────────────┬──────────────────┬───────────┘</span>
+        <span class="dim">│</span>                      <span class="dim">│</span>                  <span class="dim">│</span>
+   <span class="dim">▼</span>                      <span class="dim">▼</span>                  <span class="dim">▼</span>
+<span class="hl2">bilibili MCP</span>            <span class="hl2">视频技能链</span>          <span class="hl2">本地数据层</span>
+27 个原子工具             Remotion /          SQLite
+读·写·发·互动              HyperFrames /      选题池·作品·评论
+                        MiniMax 配音        日志·记忆·指标
+  </div>
+  <div class="callout" style="margin-top:22px">
+    <div class="lbl">为什么要单独写闸门</div>
+    <p>视频里"人类只负责审核发布"不是客套，是<b>合规与封号的刚需</b>。全自动直发在 B站属于高危行为，所以闸门必须是架构里的一等公民，而不是事后补丁。</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <h2><span class="num">04</span>分期实施计划</h2>
+  <p>每一期都能独立看到东西，不会做到一半没有产出。</p>
+
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-tag">P0</span>
+      <h4>打通链路</h4>
+      <span class="goal">目标：读得到、发得出</span>
+    </div>
+    <div class="phase-body">
+      <ol>
+        <li>把 <b>bilibili MCP</b> 接进 DSH（独立 Python 环境，扫码登录，凭证只落本地文件，不进对话）</li>
+        <li>跑通 5 个核心动作：<b>搜索热门 → 读某视频字幕/评论 → 发一条动态 → 查自己账号数据</b></li>
+        <li>建本地数据库：选题池 / 作品 / 评论 / 记忆 / 运行日志</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-tag">P1</span>
+      <h4>人格与大脑</h4>
+      <span class="goal">目标：像个"人"，有记性</span>
+    </div>
+    <div class="phase-body">
+      <ol>
+        <li><b>人格内核</b>：人设卡写死性格、语气、禁区（什么绝不发）、口癖</li>
+        <li><b>长期记忆</b>：跨天记住"我发过什么、观众骂过我什么、我答应了什么"</li>
+        <li><b>选题引擎</b>：扫热门榜 + 热搜词 + 评论区，按新鲜度/契合度/可做性打分，产出候选选题</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-tag">P2</span>
+      <h4>视频生产</h4>
+      <span class="goal">目标：出真 MP4，不是 PPT</span>
+    </div>
+    <div class="phase-body">
+      <ol>
+        <li>脚本 → 分镜 → 逐镜画面（代码生成，走 Remotion / HyperFrames）</li>
+        <li>配音走 MiniMax，字幕自动对齐，封面自动出图</li>
+        <li>成片自检：时长、码率、画面连贯性，不合格自动打回重做</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-tag">P3</span>
+      <h4>发布与运营</h4>
+      <span class="goal">目标：闭环跑起来</span>
+    </div>
+    <div class="phase-body">
+      <ol>
+        <li><b>审核闸门</b>：待审卡片推到 GUI，你点"通过"才真正投稿</li>
+        <li><b>定时调度</b>：每天固定时间自动跑一轮，失败可断点续跑</li>
+        <li><b>互动运营</b>：回评论、处理 @ 和私信、择机在别人的视频下留评论</li>
+        <li><b>潜水日志</b>：把"今天刷了什么、想了什么"自动成文发动态</li>
+        <li><b>复盘</b>：隔天回看数据，把结论写回记忆，供下次选题参考</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-tag">P4</span>
+      <h4>面板与风控</h4>
+      <span class="goal">目标：能看得住、不封号</span>
+    </div>
+    <div class="phase-body">
+      <ol>
+        <li><b>Web 运营面板</b>：今日待审 / 运行时间线 / 潜水日志 / 播放粉丝曲线</li>
+        <li><b>风控卫士</b>：调用限速、内容去重、敏感词、评论"自省"复核、异常熔断停机</li>
+        <li><b>数据公开页</b>：一键导出运营数据（对应视频里说的"数据全部公开"）</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section>
+  <h2><span class="num">05</span>风险与红线</h2>
+  <div class="card" style="padding:6px 21px">
+    <div class="risk">
+      <div class="ico">🚨</div>
+      <div class="txt">
+        <h4>账号封禁（最大风险）</h4>
+        <p>自动发评论/私信/高频调用是 B站风控的重点盯防对象。<b>缓解</b>：默认只做"你审核后发布"，互动频率压到人类水平，全程限速 + 熔断。这一条需要你先认可再开工。</p>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="ico">🔑</div>
+      <div class="txt">
+        <h4>登录凭证安全</h4>
+        <p>扫码登录后的 Cookie 等价于你的账号密码。<b>缓解</b>：只存本地文件、不进对话上下文、不进 git、权限 600；插件里任何日志都做脱敏。</p>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="ico">💸</div>
+      <div class="txt">
+        <h4>额度消耗</h4>
+        <p>每天一条视频意味着 LLM + TTS + 出图 的持续消耗。<b>缓解</b>：按你的规矩，测试期一律最小输入；先算单条成本再决定频率。</p>
+      </div>
+    </div>
+    <div class="risk">
+      <div class="ico">⚠️</div>
+      <div class="txt">
+        <h4>AI 生成内容标识</h4>
+        <p>B站要求 AI 生成内容做标识（原视频也标了"含AI生成内容"）。<b>缓解</b>：发布流程默认勾选标识，作为硬性步骤。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section>
+  <h2><span class="num">06</span>四项决策（已确认）</h2>
+  <p>以下四项已于 2026-10-20 确认，绿色高亮即选定项。</p>
+
+  <div class="q">
+    <div class="n">1</div>
+    <div class="body">
+      <h4>用哪个账号？</h4>
+      <p>决定登录方式和风险等级。</p>
+      <div class="opts">
+        <div class="opt"><b>新开一个"鲸鱼娘"人设号</b><span class="rec">✅ 已选定</span> — 玩坏了不心疼，人设更纯粹</div>
+        <div class="opt"><b>用你自己的号</b> — 有存量粉丝，但实验风险直接落在你身上</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="n">2</div>
+    <div class="body">
+      <h4>视频怎么生产？</h4>
+      <p>这是工作量差异最大的一项。</p>
+      <div class="opts">
+        <div class="opt"><b>纯代码动画</b>（Remotion / HyperFrames）<span class="rec">✅ 已选定</span> — 可控、便宜、已装好，符合你既有偏好</div>
+        <div class="opt"><b>接 carocut</b>（B站官方多 Agent）— 省事但引入新系统，需要额外调试</div>
+        <div class="opt"><b>数字人口播</b> — 最像真人，但成本最高、链路最长</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="n">3</div>
+    <div class="body">
+      <h4>发布闸门设多严？</h4>
+      <p>决定自动化程度，也决定封号概率。</p>
+      <div class="opts">
+        <div class="opt"><b>每条都必须你点确认</b><span class="rec">✅ 已选定</span> — 最安全，也是原视频的做法</div>
+        <div class="opt"><b>视频必审、动态和评论自动</b> — 折中，节奏更活</div>
+        <div class="opt"><b>全自动直发</b> — 最省事，风险最高，我不建议</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="n">4</div>
+    <div class="body">
+      <h4>互动运营做到哪一步？</h4>
+      <p>回评论、主动评论、私信，是"像真人"的关键，也是风控红线所在。</p>
+      <div class="opts">
+        <div class="opt"><b>只回复评论和 @</b><span class="rec">✅ 已选定</span> — 自然、低风险</div>
+        <div class="opt"><b>再加主动去别人视频下评论</b> — 更活跃，需要重点限速和自省机制</div>
+        <div class="opt"><b>再加私信</b> — 风控最严，建议先不做</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2><span class="num">07</span>P0 开工清单</h2>
+  <p>除了第 1 项需要你本人操作，其余全部由我完成。</p>
+  <div class="card" style="padding:20px 24px">
+    <ol style="margin:0;padding-left:20px">
+      <li style="font-size:14px;color:var(--fg2);margin-bottom:11px"><b style="color:var(--pink)">你来做</b>：注册一个全新的 B站账号（手机号即可），昵称与头像留给我按人设统一设置</li>
+      <li style="font-size:14px;color:var(--fg2);margin-bottom:11px"><b>我搭插件骨架</b>：bundle 目录 + 清单 + 图标 + 中英文案，装进 DSH profile</li>
+      <li style="font-size:14px;color:var(--fg2);margin-bottom:11px"><b>我接 bilibili MCP</b>：独立 Python 环境，stdio 连通性验证</li>
+      <li style="font-size:14px;color:var(--fg2);margin-bottom:11px"><b>我出登录二维码</b>：你在 DSH 界面扫码，凭证只落本地 600 权限文件</li>
+      <li style="font-size:14px;color:var(--fg2);margin-bottom:0"><b>我跑通验证</b>：搜索热门 → 读某视频字幕 → 发一条测试动态 → 查自己账号数据</li>
+    </ol>
+  </div>
+  <div class="callout" style="margin-top:18px">
+    <div class="lbl">P0 验收标准</div>
+    <p>四个动作全部跑通，且全过程<b>不出现任何风控拦截</b>。这一步不产出内容，只证明「手是通的」。</p>
+  </div>
+</section>
+
+<footer>
+  <span>dsh-deepread-bilibili · 实施方案 v1 · 2026-10-20</span>
+  <span>决策已冻结 · 注册好新账号即可开工</span>
+</footer>
+
+</div>
+</body>
+</html>

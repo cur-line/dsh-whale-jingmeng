@@ -1,0 +1,45 @@
+{
+  "name": "dsh-whale-jingmeng",
+  "version": "0.1.0",
+  "description": "养一条会自己刷 B 站、看得懂视频、写潜水日志、会点赞投币三连的鲸，她叫鲸檬。基于 dsh-bili-whale 改造（MIT）。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "bilibili",
+    "whale",
+    "agent",
+    "diary",
+    "persona"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "tools",
+    "cordis.patch.yml",
+    "README.md",
+    "persona.example.md",
+    "examples"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cur-line/dsh-whale-jingmeng.git"
+  },
+  "homepage": "https://github.com/cur-line/dsh-whale-jingmeng#readme"
+}

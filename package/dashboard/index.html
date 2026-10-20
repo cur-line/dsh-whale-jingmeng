@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鲸檬 · 运营面板</title>
+<style>
+  :root{
+    --bg:#0a0e16; --bg2:#0f1520; --card:#141c2a; --card2:#182130; --line:#22304a;
+    --fg:#e8eef7; --fg2:#9aa9c0; --fg3:#64758f;
+    --accent:#3fc7f5; --pink:#fb7299; --green:#3fb950; --amber:#e3b341; --red:#f85149; --purple:#a371f7;
+    --glow:0 0 24px rgba(63,199,245,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.6;
+    background-image:radial-gradient(ellipse 900px 500px at 15% -10%, rgba(63,199,245,.09), transparent 60%),
+                     radial-gradient(ellipse 700px 400px at 85% 0%, rgba(251,114,153,.07), transparent 60%);
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:0 22px 70px}
+
+  /* ── 顶栏 ── */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+    padding:22px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:13px}
+  .avatar{
+    width:46px;height:46px;border-radius:50%;flex:0 0 auto;
+    background:linear-gradient(135deg,#1e5f8a,#0d2a44);
+    border:2px solid rgba(63,199,245,.4);
+    display:grid;place-items:center;font-size:22px;
+    box-shadow:var(--glow);
+  }
+  .brand h1{font-size:19px;font-weight:680;letter-spacing:-.01em;line-height:1.2}
+  .brand .sub{font-size:12.5px;color:var(--fg3);margin-top:2px}
+  .hdr-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .clock{text-align:right}
+  .clock .t{font-size:17px;font-weight:620;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .clock .d{font-size:11.5px;color:var(--fg3);font-variant-numeric:tabular-nums}
+  .refresh{
+    cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--accent);
+    font-size:12.5px;font-weight:600;padding:7px 15px;border-radius:9px;transition:.16s;
+    font-family:inherit;
+  }
+  .refresh:hover{background:rgba(63,199,245,.1);border-color:rgba(63,199,245,.42)}
+
+  /* ── 状态条 ── */
+  .statusbar{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:26px;
+  }
+  @media(max-width:1000px){.statusbar{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.statusbar{grid-template-columns:1fr}}
+  .stat{
+    background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 17px;
+    position:relative;overflow:hidden;
+  }
+  .stat::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.75;
+  }
+  .stat.warn::before{background:var(--amber)}
+  .stat.off::before{background:var(--fg3)}
+  .stat .k{font-size:11.5px;color:var(--fg3);letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-bottom:7px}
+  .stat .v{font-size:20px;font-weight:680;font-variant-numeric:tabular-nums;line-height:1.25}
+  .stat .v.sm{font-size:15px}
+  .stat .n{font-size:12px;color:var(--fg2);margin-top:5px}
+
+  /* ── 区块 ── */
+  section{margin-bottom:30px}
+  h2{
+    font-size:15px;font-weight:660;letter-spacing:.01em;margin-bottom:14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  h2 .bar{width:3px;height:15px;background:var(--accent);border-radius:2px}
+  h2 .cnt{
+    font-size:11.5px;font-weight:600;color:var(--fg3);
+    background:var(--card);border:1px solid var(--line);padding:1px 8px;border-radius:999px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ── 时间线 ── */
+  .timeline{position:relative;padding-left:26px}
+  .timeline::before{
+    content:"";position:absolute;left:7px;top:6px;bottom:6px;width:1px;
+    background:linear-gradient(to bottom, rgba(63,199,245,.45), rgba(63,199,245,.06));
+  }
+  .ev{position:relative;margin-bottom:2px}
+  .ev .dot{
+    position:absolute;left:-24px;top:13px;width:9px;height:9px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--bg);box-shadow:0 0 0 1px rgba(63,199,245,.35);
+  }
+  .ev.k-risk .dot,.ev.k-error .dot{background:var(--red);box-shadow:0 0 0 1px rgba(248,81,73,.4)}
+  .ev.k-night .dot{background:var(--purple);box-shadow:0 0 0 1px rgba(163,113,247,.4)}
+  .ev.k-feed .dot{background:var(--green);box-shadow:0 0 0 1px rgba(63,185,80,.4)}
+  .ev.k-debrief .dot{background:var(--accent);box-shadow:0 0 0 1px rgba(63,199,245,.4)}
+  .ev.k-interact .dot{background:var(--pink);box-shadow:0 0 0 1px rgba(251,114,153,.4)}
+  .ev.k-diary .dot{background:var(--amber);box-shadow:0 0 0 1px rgba(227,179,65,.4)}
+
+  .ev .row{
+    display:flex;align-items:baseline;gap:11px;padding:9px 13px;border-radius:9px;
+    transition:.14s;flex-wrap:wrap;
+  }
+  .ev .row:hover{background:rgba(63,199,245,.045)}
+  .ev .time{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+    color:var(--fg3);flex:0 0 auto;font-variant-numeric:tabular-nums;
+  }
+  .ev .kind{
+    font-family:ui-monospace,monospace;font-size:11px;font-weight:600;
+    padding:1.5px 7px;border-radius:5px;flex:0 0 auto;
+    background:rgba(63,199,245,.11);color:var(--accent);border:1px solid rgba(63,199,245,.22);
+  }
+  .ev.k-risk .kind,.ev.k-error .kind{background:rgba(248,81,73,.12);color:var(--red);border-color:rgba(248,81,73,.25)}
+  .ev.k-night .kind{background:rgba(163,113,247,.12);color:var(--purple);border-color:rgba(163,113,247,.25)}
+  .ev.k-feed .kind{background:rgba(63,185,80,.12);color:var(--green);border-color:rgba(63,185,80,.25)}
+  .ev.k-interact .kind{background:rgba(251,114,153,.12);color:var(--pink);border-color:rgba(251,114,153,.25)}
+  .ev.k-diary .kind{background:rgba(227,179,65,.12);color:var(--amber);border-color:rgba(227,179,65,.25)}
+  .ev .text{font-size:13.5px;color:var(--fg2);flex:1;min-width:200px}
+  .ev .text b{color:var(--fg);font-weight:600}
+  .ev .tg{
+    font-family:ui-monospace,monospace;font-size:11.5px;color:var(--fg3);
+    background:rgba(100,117,143,.12);padding:1px 6px;border-radius:4px;
+  }
+
+  /* ── 卡片网格 ── */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:17px 19px}
+  .card h3{font-size:13px;font-weight:650;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:13px;color:var(--fg2)}
+
+  /* ── 健康检查 ── */
+  .check{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(34,48,74,.5);font-size:13px}
+  .check:last-child{border-bottom:none}
+  .check .ic{flex:0 0 auto;font-size:13px;line-height:1.5;width:16px}
+  .check .nm{flex:0 0 auto;color:var(--fg2);min-width:88px}
+  .check .dt{flex:1;color:var(--fg3);font-size:12.5px;font-family:ui-monospace,monospace}
+  .check.ok .ic{color:var(--green)}
+  .check.no .ic{color:var(--amber)}
+
+  /* ── 日记卡 ── */
+  .diaryitem{
+    background:var(--card2);border:1px solid var(--line);border-radius:11px;
+    padding:15px 17px;margin-bottom:11px;
+  }
+  .diaryitem .head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .diaryitem .st{
+    font-size:11px;font-weight:650;padding:2px 9px;border-radius:999px;
+    border:1px solid transparent;
+  }
+  .st.pending{background:rgba(227,179,65,.13);color:var(--amber);border-color:rgba(227,179,65,.3)}
+  .st.approved{background:rgba(63,199,245,.13);color:var(--accent);border-color:rgba(63,199,245,.3)}
+  .st.published{background:rgba(63,185,80,.13);color:var(--green);border-color:rgba(63,185,80,.3)}
+  .st.rejected{background:rgba(248,81,73,.12);color:var(--red);border-color:rgba(248,81,73,.28)}
+  .diaryitem .meta{font-size:11.5px;color:var(--fg3);font-family:ui-monospace,monospace}
+  .diaryitem .body{
+    font-size:13.5px;color:var(--fg2);line-height:1.85;white-space:pre-wrap;
+    max-height:210px;overflow:hidden;position:relative;
+    padding-bottom:10px;
+  }
+  .diaryitem.open .body{max-height:none}
+  .diaryitem .body::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:52px;
+    background:linear-gradient(to bottom,transparent,var(--card2));
+  }
+  .diaryitem.open .body::after{display:none}
+  .expand{
+    cursor:pointer;background:none;border:none;color:var(--accent);font-size:12px;
+    font-weight:600;padding:4px 0;font-family:inherit;
+  }
+  .expand:hover{text-decoration:underline}
+
+  /* ── 表格 ── */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{
+    text-align:left;padding:8px 11px;font-size:11.5px;color:var(--fg3);
+    font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+    border-bottom:1px solid var(--line);
+  }
+  td{padding:9px 11px;border-bottom:1px solid rgba(34,48,74,.45);color:var(--fg2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td b{color:var(--fg);font-weight:600}
+  .mono{font-family:ui-monospace,monospace;font-size:11.5px}
+
+  /* ── 筛选器 ── */
+  .filters{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .fbtn{
+    cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;
+    padding:5px 12px;border-radius:8px;transition:.14s;
+    background:var(--card);border:1px solid var(--line);color:var(--fg2);
+  }
+  .fbtn:hover{border-color:rgba(63,199,245,.4);color:var(--fg)}
+  .fbtn.on{background:rgba(63,199,245,.14);border-color:rgba(63,199,245,.45);color:var(--accent)}
+  .fbtn .n{opacity:.6;margin-left:5px;font-variant-numeric:tabular-nums}
+
+  /* ── 空态 ── */
+  .empty{
+    text-align:center;padding:38px 20px;color:var(--fg3);font-size:13.5px;
+    background:var(--card);border:1px dashed var(--line);border-radius:13px;
+  }
+  .empty .big{font-size:30px;margin-bottom:10px;opacity:.45}
+
+  footer{
+    margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--fg3);display:flex;justify-content:space-between;
+    flex-wrap:wrap;gap:10px;font-family:ui-monospace,monospace;
+  }
+
+  /* 加载/错误 */
+  #boot{text-align:center;padding:80px 20px;color:var(--fg3)}
+  #boot .sp{
+    width:28px;height:28px;margin:0 auto 16px;border-radius:50%;
+    border:2.5px solid rgba(63,199,245,.2);border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #boot .err{color:var(--amber);font-size:13.5px;line-height:1.9;max-width:520px;margin:0 auto}
+  #boot code{
+    font-family:ui-monospace,monospace;background:rgba(63,199,245,.1);
+    color:var(--accent);padding:2px 6px;border-radius:4px;font-size:12.5px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="boot">
+    <div class="sp"></div>
+    <div>正在读取她的状态…</div>
+  </div>
+
+  <div id="app" style="display:none"></div>
+</div>
+
+<script>
+const KIND_GROUP = {
+  'night-plan': 'night', 'night-wake': 'night', 'night-skip': 'night',
+  'feed': 'feed', 'debrief': 'debrief',
+  'interact': 'interact',
+  'diary-draft': 'diary', 'diary-push': 'diary', 'diary-approve': 'diary',
+  'diary-reject': 'diary', 'diary-publish': 'diary',
+  'risk': 'risk', 'error': 'error',
+  'dynamic': 'interact', 'notify': 'interact',
+};
+
+const KIND_LABEL = {
+  'night-plan': '生物钟', 'night-wake': '醒来', 'night-skip': '不看',
+  'feed': '选题', 'debrief': '读懂', 'interact': '互动',
+  'diary-draft': '写日记', 'diary-push': '推审', 'diary-approve': '批准',
+  'diary-reject': '驳回', 'diary-publish': '发布',
+  'risk': '风控', 'error': '错误', 'dynamic': '动态', 'notify': '通知',
+};
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function hhmm(iso) {
+  if (!iso) return '--:--';
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function dayOf(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('sv-SE');
+}
+function rel(ms) {
+  if (ms === null || ms === undefined) return '—';
+  const a = Math.abs(ms);
+  const m = Math.round(a / 60000);
+  if (m < 1) return '不到 1 分钟';
+  if (m < 60) return m + ' 分钟';
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return h + ' 小时' + (r ? ' ' + r + ' 分' : '');
+  return Math.floor(h / 24) + ' 天 ' + (h % 24) + ' 小时';
+}
+
+function render(d) {
+  const app = document.getElementById('app');
+  const s = d.schedule.current;
+  const warmup = d.switches.warmup;
+
+  const okCount = d.checks.filter(c => c.ok).length;
+  const total = d.checks.length;
+
+  // 倒计时文案
+  let nextTxt = '未排期', nextNote = '';
+  if (s && s.planAt) {
+    if (s.fired) { nextTxt = '今天已跑完'; nextNote = `计划 ${s.atText}`; }
+    else if (s.msUntil > 0) { nextTxt = rel(s.msUntil); nextNote = `预计 ${s.atText} 醒来`; }
+    else { nextTxt = '已到点'; nextNote = `计划 ${s.atText} · 等待触发`; }
+  }
+  if (s && s.roll === 'skip') { nextTxt = '今天不看'; nextNote = '掷骰子掷到了那 30%'; }
+
+  const html = `
+  <header>
+    <div class="brand">
+      <div class="avatar">🐳</div>
+      <div>
+        <h1>${esc(d.persona.name)} <span style="color:var(--fg3);font-weight:400;font-size:13px">· 运营面板</span></h1>
+        <div class="sub">${esc(d.persona.name)} <span class="mono">${esc(d.persona.selfMid ?? '?')}</span> · 主人 <span class="mono">${esc(d.persona.ownerMid ?? '?')}</span></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="clock">
+        <div class="t">${esc(d.now.split(' ')[1] ?? '')}</div>
+        <div class="d">${esc(d.now.split(' ')[0] ?? '')}</div>
+      </div>
+      <button class="refresh" onclick="location.reload()">刷新</button>
+    </div>
+  </header>
+
+  <!-- 状态条 -->
+  <div class="statusbar">
+    <div class="stat ${s && s.roll === 'skip' ? 'off' : ''}">
+      <div class="k">下次醒来</div>
+      <div class="v ${String(nextTxt).length > 8 ? 'sm' : ''}">${esc(nextTxt)}</div>
+      <div class="n">${esc(nextNote)}</div>
+    </div>
+    <div class="stat">
+      <div class="k">今日事件</div>
+      <div class="v">${d.stats.todayEvents}</div>
+      <div class="n">累计 ${d.stats.totalEvents} 条</div>
+    </div>
+    <div class="stat">
+      <div class="k">今天读过</div>
+      <div class="v">${d.diary.watched.length}</div>
+      <div class="n">想说还没说 ${d.diary.wants.length} 条</div>
+    </div>
+    <div class="stat ${(d.diary.statusCount.pending ?? 0) > 0 ? 'warn' : ''}">
+      <div class="k">待审日记</div>
+      <div class="v">${d.diary.statusCount.pending ?? 0}</div>
+      <div class="n">已发 ${d.diary.statusCount.published ?? 0} 条</div>
+    </div>
+    <div class="stat ${warmup ? 'warn' : ''}">
+      <div class="k">运行模式</div>
+      <div class="v sm">${warmup ? '养号期 · 只看不互动' : '正常运营'}</div>
+      <div class="n">分享 ${d.switches.share ? '开' : '关'} · 评论 ${d.switches.listenComment ? '开' : '关'}</div>
+    </div>
+    <div class="stat ${okCount === total ? '' : 'off'}">
+      <div class="k">自检</div>
+      <div class="v">${okCount} / ${total}</div>
+      <div class="n">${okCount === total ? '全部通过' : (total - okCount) + ' 项待处理'}</div>
+    </div>
+  </div>
+
+  <!-- 健康检查 -->
+  <section>
+    <h2><span class="bar"></span>状态自检<span class="cnt">${okCount}/${total}</span></h2>
+    <div class="card">
+      ${d.checks.map(c => `
+        <div class="check ${c.ok ? 'ok' : 'no'}">
+          <span class="ic">${c.ok ? '✓' : '!'}</span>
+          <span class="nm">${esc(c.name)}</span>
+          <span class="dt">${esc(c.detail)}</span>
+        </div>`).join('')}
+    </div>
+  </section>
+
+  <!-- 事件时间线 -->
+  <section>
+    <h2><span class="bar"></span>她干了什么<span class="cnt">${d.events.length} 条</span></h2>
+    ${d.events.length === 0
+      ? `<div class="empty"><div class="big">🌊</div>还没有事件记录。<br>她第一次醒来之后，这里会一条条长出来。</div>`
+      : `${(() => {
+          const groups = [...new Set(d.events.map(e => KIND_GROUP[e.kind] ?? 'other'))];
+          const labelOf = {night:'生物钟',feed:'选题',debrief:'读懂',interact:'互动',diary:'日记',risk:'风控',error:'错误',other:'其他'};
+          const counts = {};
+          for (const e of d.events) { const g = KIND_GROUP[e.kind] ?? 'other'; counts[g] = (counts[g]??0)+1; }
+          return `<div class="filters" id="filters">
+            <button class="fbtn on" data-f="all" onclick="filterEvents('all', this)">全部<span class="n">${d.events.length}</span></button>
+            ${groups.map(g => `<button class="fbtn" data-f="${g}" onclick="filterEvents('${g}', this)">${labelOf[g] ?? g}<span class="n">${counts[g]}</span></button>`).join('')}
+          </div>`;
+        })()}
+        <div class="timeline" id="timeline">${d.events.map(e => {
+          const grp = KIND_GROUP[e.kind] ?? '';
+          const label = KIND_LABEL[e.kind] ?? e.kind;
+          const dayLabel = dayOf(e.at);
+          const isToday = dayLabel === d.generatedAt.slice(0,10);
+          return `
+          <div class="ev k-${grp}" data-g="${esc(grp || 'other')}">
+            <div class="dot"></div>
+            <div class="row">
+              <span class="time">${hhmm(e.at)}</span>
+              <span class="kind">${esc(label)}</span>
+              <span class="text">${esc(e.note ?? '')}</span>
+              ${e.target ? `<span class="tg">${esc(String(e.target).slice(0, 28))}</span>` : ''}
+              ${!isToday ? `<span class="tg">${esc(dayLabel)}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>`
+    }
+  </section>
+
+  <!-- 日记 -->
+  <section>
+    <h2><span class="bar"></span>潜水日记<span class="cnt">${d.diary.queue.length} 条</span></h2>
+    ${d.diary.queue.length === 0
+      ? `<div class="empty"><div class="big">📖</div>还没有写过日记。</div>`
+      : [...d.diary.queue].reverse().map((e, i) => `
+        <div class="diaryitem" id="di-${i}">
+          <div class="head">
+            <span class="st ${esc(e.status)}">${esc({pending:'待审',approved:'已批准',published:'已发布',rejected:'已驳回'}[e.status] ?? e.status)}</span>
+            <span class="meta">${esc(e.date)} · ${e.chars} 字</span>
+            ${e.dynId ? `<span class="meta">· <a href="https://t.bilibili.com/${esc(e.dynId)}" target="_blank" style="color:var(--accent)">B站动态</a></span>` : ''}
+          </div>
+          <div class="body">${esc(e.text)}</div>
+          <button class="expand" onclick="document.getElementById('di-${i}').classList.toggle('open'); this.textContent = document.getElementById('di-${i}').classList.contains('open') ? '收起' : '展开全文';">展开全文</button>
+        </div>`).join('')
+    }
+  </section>
+
+  <!-- 她读过什么 -->
+  <section>
+    <h2><span class="bar"></span>她读过什么<span class="cnt">${d.diary.watched.length} 条</span></h2>
+    ${d.diary.watched.length === 0
+      ? `<div class="empty"><div class="big">👀</div>还没读过任何视频。</div>`
+      : `<div class="card" style="padding:6px 8px">
+          <table>
+            <thead><tr><th style="width:88px">日期</th><th style="width:130px">BV</th><th>标题</th><th>她的判断</th></tr></thead>
+            <tbody>
+              ${d.diary.watched.map(w => `
+                <tr>
+                  <td class="mono">${esc(w.date)}</td>
+                  <td class="mono"><a href="https://www.bilibili.com/video/${esc(w.bv)}/" target="_blank" style="color:var(--accent)">${esc(w.bv)}</a></td>
+                  <td><b>${esc(w.title)}</b></td>
+                  <td style="font-size:12.5px">${esc(w.thought)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`
+    }
+  </section>
+
+  <!-- 她想说但没说的 -->
+  ${d.diary.wants.length ? `
+  <section>
+    <h2><span class="bar"></span>她想说、还没说的<span class="cnt">${d.diary.wants.length}</span></h2>
+    <div class="card">
+      <ul style="margin:0;padding-left:19px">
+        ${d.diary.wants.map(w => `<li style="font-size:13.5px;color:var(--fg2);margin-bottom:9px;line-height:1.75">${esc(w)}</li>`).join('')}
+      </ul>
+    </div>
+  </section>` : ''}
+
+  <!-- 作息 -->
+  <section>
+    <h2><span class="bar"></span>作息与开关</h2>
+    <div class="grid g3">
+      <div class="card">
+        <h3>🌙 作息窗口</h3>
+        ${(d.schedule.windows ?? []).length
+          ? d.schedule.windows.map(w => `<p class="mono" style="font-size:13px">${esc(w.start)} – ${esc(w.end)} · 醒 ${w.wakes} 次</p>`).join('')
+          : '<p style="color:var(--fg3)">未配置</p>'}
+        <p style="margin-top:9px;font-size:12px;color:var(--fg3)">不看概率 ${Math.round((d.schedule.skipChance ?? 0) * 100)}% · 每轮最多看 ${d.schedule.maxVideos ?? '?'} 条</p>
+      </div>
+      <div class="card">
+        <h3>🔀 当前状态</h3>
+        <p style="font-size:13px">掷骰子：<b>${s?.roll === 'skip' ? '今天不看' : s?.roll === 'watch' ? '今天要看' : '未掷'}</b></p>
+        <p style="font-size:13px;margin-top:6px">计划：<b>${esc(s?.atText ?? '—')}</b> ${s?.fired ? '（已执行）' : '（未执行）'}</p>
+        <p style="font-size:12px;color:var(--fg3);margin-top:9px">窗口 ${esc(s?.window ?? '—')}</p>
+      </div>
+      <div class="card">
+        <h3>⚙️ 对外动作</h3>
+        <p style="font-size:13px">分享：<b style="color:${d.switches.share ? 'var(--green)' : 'var(--amber)'}">${d.switches.share ? '开' : '关'}</b>${d.switches.shareVia ? `　方式 ${esc(d.switches.shareVia)}` : ''}</p>
+        <p style="font-size:13px;margin-top:6px">评论监听：<b style="color:${d.switches.listenComment ? 'var(--green)' : 'var(--amber)'}">${d.switches.listenComment ? '开' : '关'}</b></p>
+        <p style="font-size:13px;margin-top:6px">推送：<b>${esc(d.switches.notify)}</b></p>
+        ${warmup ? '<p style="font-size:12px;color:var(--amber);margin-top:9px">养号期：只读不互动，风控最安全</p>' : ''}
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>dsh-deepread-bilibili · 数据生成于 ${esc(d.generatedAt.slice(0,19).replace('T',' '))}</span>
+    <span>${esc(d.events.length)} 事件 · ${esc(d.diary.watched.length)} 读过 · ${esc(d.diary.queue.length)} 日记</span>
+  </footer>`;
+
+  app.innerHTML = html;
+  app.style.display = 'block';
+  document.getElementById('boot').style.display = 'none';
+}
+
+// 事件筛选（内联 onclick 调用，不依赖事件委托）
+window.filterEvents = function(f, btn) {
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b === btn));
+  let shown = 0;
+  document.querySelectorAll('#timeline .ev').forEach(el => {
+    const match = (f === 'all' || el.dataset.g === f);
+    el.style.display = match ? '' : 'none';
+    if (match) shown += 1;
+  });
+  return shown;
+};
+
+// ── 加载数据 ─────────────────────────────────────────────────────
+async function boot() {
+  const bootEl = document.getElementById('boot');
+  try {
+    const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    render(d);
+  } catch (e) {
+    bootEl.innerHTML = `
+      <div class="err">
+        读不到 <code>data.json</code>。<br><br>
+        这是因为浏览器不允许页面直接读本地文件，需要先生成数据：<br><br>
+        <code>node tools/collect.mjs</code><br><br>
+        然后刷新本页。<br><br>
+        <span style="color:var(--fg3);font-size:12px">（错误：${esc(e.message)}）</span>
+      </div>`;
+  }
+}
+boot();
+</script>
+</body>
+</html>
