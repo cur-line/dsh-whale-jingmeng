@@ -147,7 +147,8 @@ function pushToFeishuDM(text) {
 
 // ── B 站发布 ────────────────────────────────────────────────────
 function publishToBilibili(text) {
-  const biliMjs = path.join(BILI_BASE, 'vendor', 'dsh-bili-whale', 'tools', 'bili.mjs')
+  // vendor/ 只在开发期存在；装成插件后 bili.mjs 就在包内 tools/ 下
+  const biliMjs = path.join(BILI_BASE, 'tools', 'bili.mjs')
   const r = execFileSync(process.execPath, [biliMjs, 'dynamic', 'post',
     '--text', text, '--go', '--auto',
   ], { encoding: 'utf8', timeout: 120000 })

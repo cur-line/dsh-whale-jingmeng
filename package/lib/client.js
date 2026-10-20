@@ -1,5 +1,5 @@
 /**
- * dsh-bili-whale —— 客户端半边：DSH「设置」里的 **养鱼** section（完整版）
+ * dsh-whale-jingmeng —— 客户端半边：DSH「设置」里的 **养鱼** section（完整版）
  *
  * 历史（2026-10-18）：
  *   v1 只放了 6 个字段（owner/persona/作息窗口）→ 主人说"和微信端讲的不一样" ✗。
@@ -13,7 +13,7 @@
  *         ⚠️ 保存时提交**整份配置**（load 回来原样改几个键）→ 未显示的字段不会被抹掉 ✓
  */
 window.__ModuleLoader__.load({
-  id: "dsh-bili-whale",
+  id: "dsh-whale-jingmeng",
   factory: (require) => {
     const module = { exports: {} };
     const exports = module.exports;
@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const { createElement: h, useCallback, useEffect, useState } = React;
 
     const API = "/dsh-bili/api";
-    const CSS_TAG = "dsh-bili-whale/section.css";
+    const CSS_TAG = "dsh-whale-jingmeng/section.css";
     const CSS = [
       ".blw{max-width:760px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:6px}",
       ".blw-title{margin:0;font-size:16px;font-weight:500;line-height:24px}",

@@ -1,5 +1,5 @@
 /**
- * dsh-bili-whale —— 宿主侧插件（设置壳）
+ * dsh-whale-jingmeng —— 宿主侧插件（设置壳）
  *
  * 职责只有三件：
  *   1. 设置页：GET /dsh-bili/  → lib/settings.html（单文件，内联样式/脚本）
@@ -118,7 +118,7 @@ function readBody(req, limit = 64 * 1024) {
 }
 
 export default {
-  name: 'dsh-bili-whale',
+  name: 'dsh-whale-jingmeng',
   // ⚠️ 2026-10-18 踩的坑：这里以前**写了两个 inject 键** ✗ —— 对象字面量后者覆盖前者 →
   //   `sessionController` 没被注入 → 生物钟每 60 秒静默 `return`（不报错、也不干活 ✗）
   //   一个数组写全 ✓
