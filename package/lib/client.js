@@ -1041,45 +1041,10 @@ window.__ModuleLoader__.load({
         h("span", { className: "jm-mood-tag" }, mood.key === "proud" ? "得意" : mood.key === "lazy" ? "犯懒" : mood.key === "curious" ? "好奇" : mood.key === "hungry" ? "馋" : "闷"),
         h("span", null, mood.line)) : null;
 
-      const homeView = h("div", { className: "jm-stack" },
-        moodCard,
-        cards,
-        thoughtsCard,
-        quickActions,
-        commentsCards,
-        treasureCard,
-        growCard,
-        h("div", { className: "jm-split" },
-          h("div", { className: "jm-panel" },
-            h("div", { className: "jm-panel-h" },
-              h("span", null, "最近在干什么"),
-              h("button", { className: "jm-link", onClick: () => setNav("timeline") }, "全部 →")),
-            h("div", { className: "jm-feed" },
-              (d.events || []).length
-                ? (d.events || []).slice(0, 8).map(renderEvent)
-                : h("div", { className: "jm-empty" }, "还没有事件。她第一次醒来后会出现在这里。"))),
-          h("div", { className: "jm-panel" },
-            h("div", { className: "jm-panel-h" }, h("span", null, "平台状态")),
-            h("div", { className: "jm-platforms" },
-              h("div", { className: "jm-plat" },
-                h("div", { className: "jm-plat-h" },
-                  h("span", { className: "jm-plat-badge bili" }, "B 站"),
-                  h("span", { className: "jm-plat-name" }, plat.bili?.name || d.persona?.name || "鲸檬"),
-                  h("span", { className: `jm-plat-live${plat.bili?.logged ? " on" : " off"}` }, plat.bili?.logged ? "在线" : "未登录")),
-                h("div", { className: "jm-plat-row" }, h("span", null, "mid"), h("code", null, plat.bili?.mid || "—")),
-                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.bili?.todayEvents ?? 0} 今日 / ${plat.bili?.events ?? 0} 累计`)),
-                h("div", { className: "jm-plat-row" }, h("span", null, "分享"), h("b", { className: plat.bili?.shareOn ? "on" : "off" }, plat.bili?.shareOn ? "开" : "关")),
-                h("div", { className: "jm-plat-row" }, h("span", null, "评论"), h("b", { className: plat.bili?.commentOn ? "on" : "off" }, plat.bili?.commentOn ? "开" : "关"))),
-              h("div", { className: "jm-plat" },
-                h("div", { className: "jm-plat-h" },
-                  h("span", { className: "jm-plat-badge xhs" }, "小红书"),
-                  h("span", { className: "jm-plat-name" }, plat.xhs?.name || "鲸檬"),
-                  h("span", { className: `jm-plat-live${plat.xhs?.logged ? " on" : " off"}` }, plat.xhs?.logged ? "在线" : "未登录")),
-                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.xhs?.todayEvents ?? 0} 今日 / ${plat.xhs?.events ?? 0} 累计`)),
-                h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),
-                h("div", { className: "jm-plat-row" }, h("span", null, "选题"), h("b", null, `${plat.xhs?.feedCount ?? 0} 轮`)),
-                h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
-
+      // ⚠️ 修复 TDZ（2026-10-21）：这三张卡片原先声明在 homeView **之后**，
+      //    而 homeView 构造时就要引用它们 → `Cannot access 'commentsCards' before initialization`
+      //    → StatusPanel 每次渲染都抛错 → 「养鱼」页面整块空白 ✗
+      //    修法：把它们的声明整体前移到 homeView 之前（依赖只有 d.*，前移无副作用 ✓）
       // ── 评论双卡片（2026-10-21 加）：B站留言 / 小红书留言 ─────────────
       // 老板要求：评论直接发，不用审批，但要在「最近干了什么」里写清楚。
       // 两张独立卡片，分别列 B站留言（comment-post / share-comment）和小红书留言（xhs-comment）。
@@ -1141,6 +1106,46 @@ window.__ModuleLoader__.load({
               t.up ? h("span", { className: "jm-tres-up" }, t.up) : null),
             h("div", { className: "jm-tres-reason" }, t.reason || ""))))
         : h("div", { className: "jm-empty" }, "潜水箱还空着。她收藏带理由的东西会出现在这里。");
+
+      const homeView = h("div", { className: "jm-stack" },
+        moodCard,
+        cards,
+        thoughtsCard,
+        quickActions,
+        commentsCards,
+        treasureCard,
+        growCard,
+        h("div", { className: "jm-split" },
+          h("div", { className: "jm-panel" },
+            h("div", { className: "jm-panel-h" },
+              h("span", null, "最近在干什么"),
+              h("button", { className: "jm-link", onClick: () => setNav("timeline") }, "全部 →")),
+            h("div", { className: "jm-feed" },
+              (d.events || []).length
+                ? (d.events || []).slice(0, 8).map(renderEvent)
+                : h("div", { className: "jm-empty" }, "还没有事件。她第一次醒来后会出现在这里。"))),
+          h("div", { className: "jm-panel" },
+            h("div", { className: "jm-panel-h" }, h("span", null, "平台状态")),
+            h("div", { className: "jm-platforms" },
+              h("div", { className: "jm-plat" },
+                h("div", { className: "jm-plat-h" },
+                  h("span", { className: "jm-plat-badge bili" }, "B 站"),
+                  h("span", { className: "jm-plat-name" }, plat.bili?.name || d.persona?.name || "鲸檬"),
+                  h("span", { className: `jm-plat-live${plat.bili?.logged ? " on" : " off"}` }, plat.bili?.logged ? "在线" : "未登录")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "mid"), h("code", null, plat.bili?.mid || "—")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.bili?.todayEvents ?? 0} 今日 / ${plat.bili?.events ?? 0} 累计`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "分享"), h("b", { className: plat.bili?.shareOn ? "on" : "off" }, plat.bili?.shareOn ? "开" : "关")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "评论"), h("b", { className: plat.bili?.commentOn ? "on" : "off" }, plat.bili?.commentOn ? "开" : "关"))),
+              h("div", { className: "jm-plat" },
+                h("div", { className: "jm-plat-h" },
+                  h("span", { className: "jm-plat-badge xhs" }, "小红书"),
+                  h("span", { className: "jm-plat-name" }, plat.xhs?.name || "鲸檬"),
+                  h("span", { className: `jm-plat-live${plat.xhs?.logged ? " on" : " off"}` }, plat.xhs?.logged ? "在线" : "未登录")),
+                h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.xhs?.todayEvents ?? 0} 今日 / ${plat.xhs?.events ?? 0} 累计`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "选题"), h("b", null, `${plat.xhs?.feedCount ?? 0} 轮`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
+
 
       const timelineView = h("div", { className: "jm-panel jm-fill" },
         h("div", { className: "jm-panel-h" },

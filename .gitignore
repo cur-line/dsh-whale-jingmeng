@@ -34,3 +34,8 @@ shots/
 # 本机面板快照包含个人日记与运行状态，只在本地生成
 package/dashboard/data.json
 package/dashboard/鲸檬面板.html
+
+# 临时二维码 / 登录态截图（等同凭据，绝不入库）
+.tmp-qr/
+*.qr.png
+qr*.png

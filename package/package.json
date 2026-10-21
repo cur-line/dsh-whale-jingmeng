@@ -45,6 +45,6 @@
   },
   "homepage": "https://github.com/cur-line/dsh-whale-jingmeng#readme",
   "scripts": {
-    "test": "node tests/regression.mjs && node tests/collect.mjs && node tests/isolated-fixes.mjs && node tests/status-panel.mjs && node tests/collector-timezone.mjs && node tests/approvals-api.mjs && node tests/approvals-ui.mjs"
+    "test": "node tests/regression.mjs && node tests/render-check.mjs && node tests/collect.mjs && node tests/isolated-fixes.mjs && node tests/status-panel.mjs && node tests/collector-timezone.mjs && node tests/approvals-api.mjs && node tests/approvals-ui.mjs"
   }
 }
