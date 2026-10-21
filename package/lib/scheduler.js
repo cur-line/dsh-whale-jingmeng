@@ -24,6 +24,7 @@ import { resolveNodeExecutable } from './node-runtime.js'
 // 收件箱读取复用工具链的实现（避免在插件里再抄一份 B站 接口 ✓）
 import { pullFeed, makeHeaders } from '../tools/lib/msgfeed.mjs'
 import { todayMood } from '../tools/lib/mood.mjs'
+import { vipDailyLeft } from '../tools/lib/vip.mjs'
 
 const TICK_MS = 60_000
 const LISTEN_STATE = 'whale-listen.json'
@@ -642,7 +643,59 @@ export function startScheduler(ctx, opts) {
   }
   const timerInspire = setInterval(() => { inspireTick().catch(() => {}) }, TICK_MS)
   startup(inspireTick, 10_000)
-  log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看 + 每日灵感都挂上了 ✓`)
+
+  // ── 特别关注（2026-10-21 借鉴 yangyu-bot）：名单里的人发新视频 → 叫醒鲸檬优先看 ──
+  // 频率：每 VIP_INTERVAL_MS（20 分钟）查一次，只挑"最近 72h + 未看过 + 每天 ≤ 上限"的新视频。
+  // 命中就 prompt 一次，让她去看/互动；不阻塞主 tick。
+  const VIP_INTERVAL_MS = 20 * 60 * 1000
+  let vipBusy = false
+  let lastVipAt = 0
+  async function vipTick() {
+    if (!ctx.sessionController) return
+    if (vipBusy || Date.now() - lastVipAt < VIP_INTERVAL_MS) return
+    let cfg = {}
+    try { cfg = JSON.parse(fs.readFileSync(CFG_FILE_REF, 'utf8')) } catch {}
+    if (!Array.isArray(cfg?.vip?.users) || !cfg.vip.users.length) return   // 没配名单 → 不跑
+    if (vipDailyLeft(cfg) <= 0) return                                     // 今天到上限了
+    const cred = (() => { try { return JSON.parse(fs.readFileSync(CRED_REF, 'utf8')) } catch { return null } })()
+    if (!cred?.sessdata) return
+    vipBusy = true
+    try {
+      lastVipAt = Date.now()
+      const { fetchVipDynamics } = await import('./vip.mjs')
+      const fresh = await fetchVipDynamics(cred, cfg)
+      if (!fresh.length) return
+      const list = fresh.map((v) => `《${v.title}》 by ${v.name || v.owner || v.uid} · ${v.bvid}`).join('\n')
+      await ensureSession()
+      await ctx.sessionController.prompt({
+        requestId: `bili-whale-vip-${Date.now()}`,
+        sessionId,
+        mode: 'queue',
+        content: [{
+          type: 'text',
+          text: [
+            personaLine(),
+            `【特别关注】${fresh.length} 条新动态等你刷（每天最多 ${cfg.vip.dailyMax ?? 6} 条）`,
+            '',
+            list,
+            '',
+            '按 AGENTS.md 的「特别关注」做：',
+            '1) 逐条看：`node bili.mjs watch-video <BV>` 真看 + `node bili.mjs debrief <BV>` 看懂（不用等我说）',
+            '2) 看完有感觉就互动：`node bili.mjs interact like <BV>`；评论过安全闸就直接 `comment --go`',
+            '3) 处理完每条 `node bili.mjs vip done <BV>` 记账（今天的配额按它扣）',
+          ].join('\n'),
+        }],
+      }, new AbortController().signal)
+      log(`[bili-whale] 特别关注命中 ${fresh.length} 条（${fresh.map((v) => v.bvid).join(',')}）→ 已叫醒她`)
+    } catch (e) {
+      log(`[bili-whale] 特别关注失败：${String(e.message).slice(0, 140)}`)
+    } finally {
+      vipBusy = false
+    }
+  }
+  const timerVip = setInterval(() => { vipTick().catch(() => {}) }, TICK_MS)
+  startup(vipTick, 25_000)
+  log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看 + 每日灵感 + 特别关注都挂上了 ✓`)
 
   return {
     /** 设置页一保存就调它：清掉旧计划，下一次 tick 按新配置重算 ✓ */
@@ -662,10 +715,11 @@ export function startScheduler(ctx, opts) {
       // ⭐ 直播间是**单独开关**：保存设置就立刻生效（点开就跑 ✓ 关掉就停 ✓），不等下一轮定时器
       liveTick().catch(() => {})
     },
-    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timerDm); clearInterval(timer3); clearInterval(timerInspire); startupTimers.forEach(clearTimeout); liveStopping = true; try { liveProc?.kill() } catch {} },
+    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timerDm); clearInterval(timer3); clearInterval(timerInspire); clearInterval(timerVip); startupTimers.forEach(clearTimeout); liveStopping = true; try { liveProc?.kill() } catch {} },
     tick,
     listenTick,
     liveTick,
     inspireTick,
+    vipTick,
   }
 }

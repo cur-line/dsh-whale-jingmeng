@@ -32,6 +32,7 @@ import os from 'node:os'
 import { gate, record } from '../lib/quota-gate.mjs'
 import { logEvent } from '../lib/event-log.mjs'
 import { config } from '../lib/config.mjs'
+import * as fuse from '../lib/fuse.mjs'
 
 const HOME = process.env.USERPROFILE || process.env.HOME || os.homedir()
 const CRED = path.join(HOME, '.bili-ai', 'credentials.json')
@@ -139,17 +140,32 @@ async function get(apiPath) {
 
 // 风控识别：碰到这些码立刻停，不重试
 const RISK = new Set([-352, -412, -509, -799])
-function checkRisk(j, what) {
+function checkRisk(j, what, action = null) {
   if (RISK.has(j.code)) {
     console.error(`\n⛔ ${what} 撞到风控（code=${j.code} ${j.message ?? ''}）`)
     console.error('   已停手，按原样不重试。建议等 10 分钟以上再动，或今天到此为止。')
+    if (action) {
+      const t = fuse.trip(action)
+      console.error(`   🔥 已熔断「${action}」到 ${new Date(t.until).toLocaleString('zh-CN')}（连续第 ${t.trips} 次）`)
+    }
     process.exit(5)
+  }
+}
+
+// 保险丝检查：该动作被熔断就停手（interact 是显式手动命令，仍可 --no-gate 绕过？不——保险丝是硬约束，不给绕过）
+function fuseCheck(action) {
+  if (!fuse.allow(action)) {
+    const st = fuse.status()
+    console.error(`⛔ 「${action}」被 B站 风控熔断了（暂停到 ${new Date(st[action]?.until).toLocaleString('zh-CN')}，已连续 ${st[action]?.trips} 次）`)
+    console.error('   这是保险丝，不是限额——等它自己恢复，或跑 fuse reset <action> 手动解除。')
+    process.exit(2)
   }
 }
 
 // ── 具体动作 ────────────────────────────────────────────────────
 async function doLike() {
   const action = UNDO ? 2 : 1
+  fuseCheck('like')
   console.log(`[点赞] ${bvid} → ${UNDO ? '取消赞' : '点赞'}`)
   if (DRY) return { ok: true, dry: true }
   // ⚠️ 端点与参数名实测修正（2026-10-20）：
@@ -161,12 +177,14 @@ async function doLike() {
     like: String(action),
   })
   console.log(`  code=${j.code} ${j.message ?? ''}`)
-  checkRisk(j, '点赞')
+  checkRisk(j, '点赞', 'like')
+  if (j.code === -403) { fuse.trip('like'); console.error(`   🔥 已熔断「点赞」24h（-403 账号异常，可能是风控）`) }
   return { ok: j.code === 0, code: j.code }
 }
 
 async function doCoin() {
   const n = opt('x2', false) ? 2 : (Number(CFG_INTERACT.coinMultiplier) || 1)
+  fuseCheck('coin')
   console.log(`[投币] ${bvid} → ${n} 币`)
   if (DRY) return { ok: true, dry: true }
   // 投币端点同样是老接口已废：/x/v2/view/coin → 404
@@ -177,12 +195,14 @@ async function doCoin() {
     select_like: '0', // 不在投币时顺带点赞，交给 like 单独控制
   })
   console.log(`  code=${j.code} ${j.message ?? ''}`)
-  checkRisk(j, '投币')
+  checkRisk(j, '投币', 'coin')
+  if (j.code === -403) { fuse.trip('coin'); console.error(`   🔥 已熔断「投币」24h（-403 账号异常）`) }
   return { ok: j.code === 0, code: j.code }
 }
 
 async function doFav() {
   const folderArg = opt('folder', DEFAULT_FOLDER)
+  fuseCheck('fav')
   if (!folderArg) {
     die('收藏需要收藏夹。\n在 ~/.dsh/bili-whale.config.json 的 interact.favFolderId 填一个，或传 --folder <ID>。')
   }
@@ -204,7 +224,8 @@ async function doFav() {
     del_media_ids: '',
   })
   console.log(`  code=${j.code} ${j.message ?? ''}`)
-  checkRisk(j, '收藏')
+  checkRisk(j, '收藏', 'fav')
+  if (j.code === -403) { fuse.trip('fav'); console.error(`   🔥 已熔断「收藏」24h（-403 账号异常）`) }
   return { ok: j.code === 0, code: j.code }
 }
 

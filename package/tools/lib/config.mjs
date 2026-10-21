@@ -49,6 +49,12 @@ export const DEFAULTS = {
     publishNeedsApproval: true,  // 发笔记必须先给人看 —— 默认死守
     readPerWake: 2,              // 每轮最多深读几条
   },
+  // 特别关注（2026-10-21 借鉴 yangyu-bot）：名单里的人发新视频 → 鲸檬优先看/互动。
+  // users: [{ uid: <B站mid>, name: <昵称> }]；每天最多 dailyMax 条
+  vip: {
+    users: [],
+    dailyMax: 6,
+  },
 }
 
 const merge = (base, over) => {

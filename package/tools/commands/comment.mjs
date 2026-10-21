@@ -15,6 +15,7 @@ import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { config } from '../lib/config.mjs'
+import { checkComment } from '../lib/comment-safety.mjs'
 
 // ── 限额闸（B 档「限额自主」的代码强制部分，2026-10-14 主人选 B 档）────────────────
 // 语义：闸门**只管自主发言**（带 --auto，即"她自己决定说的"）；主人当场授权的发言不拦 ✓
@@ -227,6 +228,18 @@ if (dry) {
   console.log(`\n[限额闸] ${chk.out}`)
   if (chk.code !== 0) {
     console.error('  → 拒绝发送。这是硬约束第 4 条的代码实现，不要绕过（要发请主人当场授权，或改白名单/额度）。')
+    process.exit(2)
+  }
+}
+
+// ── 内容安全闸（2026-10-21 加）────────────────────────────────────────
+// 红线代码化：带链接 / 联系方式 / 引流话术 / @ / 广告刷量的评论一律拒绝发送，
+// 防被 B站 判广告号。纯本地正则，零 token 消耗。
+// --share（分享型）正文带 @主人 是合法设计 → 跳过 mention 检查，其余规则照查。
+{
+  const s = checkComment(message, { allowMention: SHARE })
+  if (!s.ok) {
+    console.error('✗ 安全闸拒绝：' + s.reason)
     process.exit(2)
   }
 }

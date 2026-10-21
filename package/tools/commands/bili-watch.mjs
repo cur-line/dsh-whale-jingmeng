@@ -30,6 +30,18 @@ const { cid, title, duration, owner } = { ...view.data, owner: view.data.owner?.
 console.log(`标题: ${title}`)
 console.log(`UP: ${owner}   时长: ${duration}s   cid=${cid}`)
 
+// ── 真"看"一段：先发播放心跳留下观看记录（2026-10-21 借鉴 yangyu-bot）
+// 只调 /view 不会留记录、也不算每日观看经验；这里先按网页播放器方式发心跳。
+// 默认看 25% 时长（最多 2 分钟）——下载抽帧本身也耗时间，合并起来足够像真人。
+const watchSec = Math.max(5, Math.min(Math.round(duration * 0.25), 120))
+try {
+  const { reportWatch } = await import('../lib/heartbeat.mjs')
+  const w = await reportWatch(cred, bvid, { seconds: watchSec, interval: 15 })
+  console.log(`✓ 已播放心跳真看 ${w.played}s（${w.aborted ? '被打断' : '看完计划时长'}，已留观看记录）`)
+} catch (e) {
+  console.log(`（心跳上报失败，不影响看图：${String(e.message).slice(0, 80)}）`)
+}
+
 // 画质实测（2026-10-14）：html5 + qn=32 会被压到 360p（返回 quality=16，界面小字全糊）；
 // 改 platform=pc + qn=80 可拿到 720p（返回 quality=64），依旧是普通 mp4 直链，不必碰 dash。
 const p = await (await fetch(`https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=80&fnval=1&platform=pc&high_quality=1`, { headers: H })).json()

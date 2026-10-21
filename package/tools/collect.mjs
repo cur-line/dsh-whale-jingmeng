@@ -316,6 +316,35 @@ const snapshot = {
     lastPublish,
   },
 
+  // ── 养号进度（2026-10-21 加，借鉴 yangyu-bot）──────────────────
+  // · fuse：动作保险丝（哪个写动作被 B站 风控熔断了）
+  // · vip：特别关注今天还剩几条配额
+  // · task：任务箱待办数
+  grow: {
+    fuse: (() => {
+      const f = readJson(path.join(DSH, 'bili-fuse.json'), {})
+      const now = Date.now()
+      const out = {}
+      for (const [action, v] of Object.entries(f)) {
+        out[action] = { blocked: now < v.until, until: new Date(v.until).toISOString(), trips: v.trips }
+      }
+      return out
+    })(),
+    vip: (() => {
+      const users = Array.isArray(cfg?.vip?.users) ? cfg.vip.users : []
+      const st = readJson(path.join(DSH, 'bili-vip.json'), {})
+      const max = Number(cfg?.vip?.dailyMax) || 6
+      const done = st.done?.[today] || 0
+      return { users, dailyMax: max, doneToday: done, left: Math.max(0, max - done) }
+    })(),
+    taskPending: (() => {
+      const lines = readText(path.join(DSH, 'tasks.jsonl')).split('\n').filter(Boolean)
+      let pending = 0
+      for (const l of lines) { try { if (JSON.parse(l).status === 'pending') pending++ } catch {} }
+      return pending
+    })(),
+  },
+
   checks,
 
   platforms,

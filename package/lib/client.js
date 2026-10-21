@@ -261,6 +261,12 @@ window.__ModuleLoader__.load({
       ".jm-mood{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:10px;background:linear-gradient(120deg,rgba(63,199,245,.10),rgba(232,121,166,.10));border:.5px solid var(--dsw-alias-border-l1);font-size:13px;line-height:1.7;color:var(--dsw-alias-label-primary);margin-bottom:10px}",
       ".jm-mood-ic{font-size:16px;flex:0 0 auto}",
       ".jm-mood-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.12);color:var(--dsw-alias-label-tertiary);flex:0 0 auto}",
+      ".jm-grow{display:flex;flex-direction:column;gap:8px;margin-top:12px}",
+      ".jm-grow-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px}",
+      ".jm-grow-k{flex:0 0 76px;color:var(--dsw-alias-label-tertiary);font-size:12px}",
+      ".jm-grow-v{font-variant-numeric:tabular-nums}",
+      ".jm-grow-v.warn{color:#e0564f}",
+      ".jm-grow-n{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -1042,6 +1048,7 @@ window.__ModuleLoader__.load({
         quickActions,
         commentsCards,
         treasureCard,
+        growCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
             h("div", { className: "jm-panel-h" },
@@ -1095,6 +1102,31 @@ window.__ModuleLoader__.load({
       const commentsCards = h("div", { className: "jm-cmt2" },
         cmtCard("B站留言", "bili", cmt.bili || []),
         cmtCard("小红书留言", "xhs", cmt.xhs || []));
+
+      // ── 养号进度（2026-10-21 加，借鉴 yangyu-bot）──
+      // 特别关注配额 / 任务箱待办 / 写动作保险丝，一眼看养号健不健康。
+      const grow = d.grow || {};
+      const growVip = grow.vip || {};
+      const growFuse = grow.fuse || {};
+      const fuseEntries = Object.entries(growFuse).filter(([, f]) => f.blocked);
+      const vipNames = (growVip.users || []).map((u) => u.name || u.uid).join("、") || "未配置";
+      const growCard = h("div", { className: "jm-panel" },
+        h("div", { className: "jm-panel-h" }, h("span", null, "养号进度")),
+        h("div", { className: "jm-grow" },
+          h("div", { className: "jm-grow-row" },
+            h("span", { className: "jm-grow-k" }, "特别关注"),
+            h("b", { className: "jm-grow-v" }, growVip.users?.length ? `${(growVip.doneToday || 0)} / ${growVip.dailyMax || 6} 今天 · 剩 ${growVip.left ?? "—"}` : "未配名单"),
+            h("span", { className: "jm-grow-n" }, vipNames)),
+          h("div", { className: "jm-grow-row" },
+            h("span", { className: "jm-grow-k" }, "任务箱"),
+            h("b", { className: "jm-grow-v" }, `${grow.taskPending ?? 0} 条待办`),
+            h("span", { className: "jm-grow-n" }, grow.taskPending ? "等她醒来处理" : "没有积压")),
+          h("div", { className: "jm-grow-row" },
+            h("span", { className: "jm-grow-k" }, "风控保险丝"),
+            h("b", { className: `jm-grow-v${fuseEntries.length ? " warn" : ""}` }, fuseEntries.length ? `${fuseEntries.length} 个动作被熔断` : "全部正常"),
+            h("span", { className: "jm-grow-n" }, fuseEntries.length
+              ? fuseEntries.map(([a, f]) => `${a}→${new Date(f.until).toLocaleString("zh-CN", { day: "numeric", hour: "2-digit", minute: "2-digit" })}`).join(" · ")
+              : "点赞/投币/收藏等写动作都通着"))));
 
       // ── 潜水箱（2026-10-21 加）：收藏带理由 = 她的宝贝 ────────────────
       const treasure = d.treasure || [];
