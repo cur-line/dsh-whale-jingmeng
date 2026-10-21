@@ -61,6 +61,22 @@
 
 跨天记住读过什么、被谁说过什么、答应过什么。沉默 3 天开始安静，7 天不再分享 —— 但日记照写。
 
+### 给鱼片推荐视频
+
+她看到值得做的视频，会把建议写进 `~/.dsh/video-suggestions.json`，DSH 养鱼页上「给你的视频建议」卡片里
+每条能点「标记已阅」（状态写回同一文件，重启不丢）。
+
+推荐的**不只是链接，还有「怎么做」的提示词**（`prompt` 字段：参考角度 / 画面要素 / 标题示例）。
+类型按阶段走，不是一上来全是干货：
+
+| 阶段 | 类型 | 参考样本 |
+|---|---|---|
+| 前期 1-2 条 | 角色剧情向（二次元拟人立绘 + 大字报 + 弹幕互动梗 + Day N 连载） | [BV1VXJf66Eyy](https://www.bilibili.com/video/BV1VXJf66Eyy)、[BV1pGnn67EC2](https://www.bilibili.com/video/BV1pGnn67EC2) |
+| 之后 | 专业知识类（硬核科普、能上手验证的技术实践） | [BV1KtaU6cEHe](https://www.bilibili.com/video/BV1KtaU6cEHe) |
+| 穿插 | 热点 AI 新闻类（当天/当周真发生的事，不做炒冷饭） | [BV1oani6UEJ3](https://www.bilibili.com/video/BV1oani6UEJ3) |
+
+规则写在人设里（`persona/鲸檬.md` → 「你给鱼片推荐视频的节奏」），她每次醒来都会读到。
+
 ---
 
 ## 她和上游的关系

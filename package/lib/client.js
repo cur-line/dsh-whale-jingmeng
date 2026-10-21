@@ -267,7 +267,7 @@ window.__ModuleLoader__.load({
       ".jm-grow-v{font-variant-numeric:tabular-nums}",
       ".jm-grow-v.warn{color:#e0564f}",
       ".jm-grow-n{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-      /* 视频建议（2026-10-21 加）：给老板的每日推荐 + 已看标记 */
+      /* 视频建议（2026-10-21 加）：给老板的每日推荐 + 已阅标记 */
       ".jm-video{display:flex;flex-direction:column;gap:8px;margin-top:12px}",
       ".jm-video-item{display:flex;flex-direction:column;gap:5px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:9px 11px}",
       ".jm-video-item.seen{opacity:.62}",
@@ -1125,7 +1125,7 @@ window.__ModuleLoader__.load({
         : h("div", { className: "jm-empty" }, "潜水箱还空着。她收藏带理由的东西会出现在这里。");
 
       // ── 给你的视频建议（2026-10-21 加）─────────────────────────────
-      // 老板要看推荐了哪些视频 + 能标记「已看」。状态写回 video-suggestions.json（API），
+      // 老板要看推荐了哪些视频 + 能标记「已阅」。状态写回 video-suggestions.json（API），
       // 30s 自动刷新后保持。
       const vids = d.videoSuggestions || [];
       const markVideo = (url, seen) => {
@@ -1138,7 +1138,7 @@ window.__ModuleLoader__.load({
       const videoCard = h("div", { className: "jm-panel" },
         h("div", { className: "jm-panel-h" },
           h("span", null, "给你的视频建议"),
-          vids.some((v) => v.seen) ? h("span", { className: "jm-meta" }, `已看 ${vids.filter((v) => v.seen).length}/${vids.length}`) : null),
+          vids.some((v) => v.seen) ? h("span", { className: "jm-meta" }, `已阅 ${vids.filter((v) => v.seen).length}/${vids.length}`) : null),
         vids.length
           ? h("div", { className: "jm-video" },
             vids.map((v, i) => h("div", { key: i, className: `jm-video-item${v.seen ? " seen" : ""}` },
@@ -1151,14 +1151,14 @@ window.__ModuleLoader__.load({
               v.action ? h("div", { className: "jm-video-act" }, v.action) : null,
               h("div", { className: "jm-video-btns" },
                 v.seen
-                  ? h("button", { className: "jm-vbtn done", title: "点一下取消已看" }, "✓ 已看")
+                  ? h("button", { className: "jm-vbtn done", title: "点一下取消已阅" }, "✓ 已阅")
                   : h("button", {
                     className: "jm-vbtn",
-                    title: "标记为已看",
+                    title: "标记为已阅",
                     onClick: () => markVideo(v.url, true),
-                  }, "标记已看")))))
+                  }, "标记已阅")))))
           : h("div", { className: "jm-video-empty" }, "还没有视频建议。她推荐后会出现在这里。"));
-      // 「已看」按钮点过 → 变灰并显示 ✓（默认不动，30s 刷新后从后端读回）
+      // 「已阅」按钮点过 → 变灰并显示 ✓（默认不动，30s 刷新后从后端读回）
 
       const homeView = h("div", { className: "jm-stack" },
         moodCard,
