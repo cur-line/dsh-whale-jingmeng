@@ -1257,6 +1257,19 @@ window.__ModuleLoader__.load({
         } catch (e) {}
       };
 
+      // 最新潜水日志（2026-10-21 老板要求：常驻显示）
+      // 日记不再发 B 站动态，只留在养鱼页给主人看 —— 总览页直接显示最新一篇全文
+      const diaryHomeCard = (() => {
+        const entries = (d.diary?.queue || []).filter((e) => String(e.text || '').trim());
+        const latest = entries[entries.length - 1];
+        return latest ? h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" },
+            h("span", null, "今天的潜水日志"),
+            h("span", { className: "jm-meta" }, `${latest.date} · ${latest.chars} 字`),
+            h("button", { className: "jm-link", onClick: () => setNav("diary") }, "全部 →")),
+          h("div", { className: "jm-diary-b" }, latest.text)) : null;
+      })();
+
       const homeView = h("div", { className: "jm-stack" },
         moodCard,
         cards,
@@ -1267,6 +1280,7 @@ window.__ModuleLoader__.load({
         growCard,
         videoCard,
         promptCard,
+        diaryHomeCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
             h("div", { className: "jm-panel-h" },
