@@ -13,10 +13,17 @@
 // 用法：
 //   node xhs.mjs diary material           把最近读过的整理成素材（只读）
 //   node xhs.mjs diary draft              用素材生成一篇草稿（写文件，不发）
+//   node xhs.mjs diary gen-image          为待批稿生成「配图提示词清单」（2026-10-21 加）
 //   node xhs.mjs diary push               发到手机/飞书给人看（可选）
 //   node xhs.mjs diary list               看待批准队列
 //   node xhs.mjs diary approve <id>       批准某篇
 //   node xhs.mjs diary publish <id>       发出去（走 note --go 的同一套闸门）
+//
+// 配图流程（2026-10-21 加，老板拍板用 Codex 生成）：
+//   draft → gen-image（生成提示词清单到 ~/.dsh/xhs/gen-image-prompts.json）
+//   → Agent 侧用 codex_image_generate 按清单生成图到 ~/.dsh/xhs/images/<id>/
+//   → attach <id> --images …（回填队列，见下）→ approve → publish
+//   node xhs.mjs diary attach <id> --images a.jpg,b.jpg   把生成好的图挂到待批稿
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -30,6 +37,8 @@ const DIR = path.join(process.env.DSH_HOME || path.join(HOME, '.dsh'), 'xhs')
 const DIARY = path.join(DIR, 'diary.md')
 const DRAFT = path.join(DIR, 'draft.md')
 const PENDING = path.join(DIR, 'pending.json')
+const GEN_IMG = path.join(DIR, 'gen-image-prompts.json')
+const IMG_DIR = path.join(DIR, 'images')
 
 const argv = process.argv.slice(2)
 const cmd = argv[0]
@@ -107,6 +116,67 @@ if (cmd === 'draft') {
   fs.writeFileSync(DRAFT, lines.join('\n'))
   console.log(`草稿骨架已写：${DRAFT}`)
   console.log('填完用：node xhs.mjs note --from ' + DRAFT + ' --dry')
+  process.exit(0)
+}
+
+if (cmd === 'gen-image') {
+  // 为「待批/已批但缺图」的稿生成配图提示词清单，落盘给 Agent 侧 Codex 用。
+  // 角色设定（鲸檬，AI 品牌角色素材库见 ~/Pictures/工作素材/AI品牌角色/DeepSeek_鲸鱼娘_小.png）
+  const pending = readEntries(PENDING, true)
+  const targets = pending.filter((p) => p.status === 'pending' || p.status === 'approved')
+  if (!targets.length) { console.log('待批准队列里没有要配图的稿。'); process.exit(0) }
+  const out = targets.map((p) => {
+    const title = String(p.title || '').trim()
+    const content = String(p.content || '').trim()
+    const lines = content.split(/\n/).map((l) => l.trim()).filter(Boolean)
+    const firstLine = lines[0] || ''
+    return {
+      id: p.id,
+      title,
+      images: (p.images || []).length,
+      prompt: [
+        `小红书图文配图（方形 1:1），主角是「鲸檬」——一只住在深海、性格傲娇嘴硬心软的幼年鲸鱼娘（参考角色立绘：幼年版三视图，白/蓝鲸尾，圆脸大眼睛）。`,
+        `这篇日记的主题：${title}。${firstLine ? '开头是：' + firstLine : ''}`,
+        '要求：画面干净、有生活感、像鲸鱼娘随手拍的一天；不写字、不加水印；色调柔和、小红书风格。',
+      ].join('\n'),
+    }
+  })
+  fs.mkdirSync(DIR, { recursive: true })
+  fs.writeFileSync(GEN_IMG, JSON.stringify({ generatedAt: new Date().toISOString(), items: out }, null, 2))
+  console.log(`✓ 配图提示词清单已生成：${GEN_IMG}`)
+  console.log(`  共 ${out.length} 篇待配图。`)
+  console.log('下一步（Agent 侧）：用 codex_image_generate 按清单生成图到 ' + IMG_DIR + '/<id>/，然后：')
+  console.log('  node xhs.mjs diary attach <id> --images <图路径1,图路径2…>')
+  process.exit(0)
+}
+
+if (cmd === 'attach') {
+  // 把生成好的图挂到待批稿（生成动作在 Agent 侧，这里只登记 + 校验）
+  // 支持：attach <id> --images a.jpg,b.jpg 或 attach --id <id> --images …
+  const idAt = argv.indexOf('--id')
+  let id = idAt >= 0 ? argv[idAt + 1] : null
+  if (!id && argv.length >= 2 && !argv[1].startsWith('--')) id = argv[1]
+  const imgAt = argv.indexOf('--images')
+  const images = imgAt >= 0 ? argv[imgAt + 1] : ''
+  if (!id || id.startsWith('--') || !images || images.startsWith('--')) { console.error('用法：node xhs.mjs diary attach <id> --images a.jpg,b.jpg'); process.exit(2) }
+  const list = images.split(',').map((s) => s.trim()).filter(Boolean)
+  if (!list.length || list.length > 18) { console.error(`配图需 1-18 张，收到 ${list.length} 张`); process.exit(2) }
+  const missing = list.filter((p) => !fs.existsSync(p))
+  if (missing.length) { console.error(`以下配图不存在：${missing.join(', ')}`); process.exit(2) }
+  const badExt = list.filter((p) => !/\.(jpe?g|png|webp)$/i.test(p))
+  if (badExt.length) { console.error(`配图格式不支持（需 jpg/png/webp）：${badExt.join(', ')}`); process.exit(2) }
+  const release = lockQueue(PENDING)
+  try {
+    const pending = readEntries(PENDING, true)
+    const item = pending.find((p) => String(p.id) === String(id))
+    if (!item) { console.error(`队列里没有 ${id}`); process.exit(1) }
+    if (!['pending', 'approved'].includes(item.status)) { console.error('仅待审/已批稿可挂图。'); process.exit(2) }
+    item.images = [...list]
+    writeJson(PENDING, pending)
+    console.log(`✓ 已给 ${item.title} 挂上 ${list.length} 张图`)
+    console.log(item.status === 'approved' ? '下一步：node xhs.mjs diary publish ' + id : '下一步：node xhs.mjs diary approve ' + id)
+    try { logEvent('xhs-diary-images', { target: id, note: `挂配图 ${list.length} 张（Codex 生成）` }) } catch {}
+  } finally { release() }
   process.exit(0)
 }
 
