@@ -349,6 +349,19 @@ const snapshot = {
   // 文件由会话（鲸檬自己）写入 ~/.dsh/video-suggestions.json，面板只读展示。
   videoSuggestions: readJson(path.join(DSH, 'video-suggestions.json'), { items: [] }).items ?? [],
 
+  // ── 每天要做的视频（2026-10-21 加，老板：放养鱼页里）─────────────────
+  // 鲸檬做视频用的脚本：角色锚点（保证每期长得一样）+ 统一规格 + 每期分镜提示词。
+  // 文件由会话（鲸檬自己）写入 ~/.dsh/video-prompts.json，面板只读展示。
+  videoPrompts: (() => {
+    const vp = readJson(path.join(DSH, 'video-prompts.json'), null)
+    if (!vp || typeof vp !== 'object') return { roleAnchor: '', spec: '', items: [] }
+    return {
+      roleAnchor: vp.roleAnchor ?? '',
+      spec: vp.spec ?? '',
+      items: Array.isArray(vp.items) ? vp.items : [],
+    }
+  })(),
+
   stats: {
     totalEvents: events.length,
     todayEvents: todayEvents.length,

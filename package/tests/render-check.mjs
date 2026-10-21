@@ -77,10 +77,13 @@ function load(src) {
 
 /** 递归渲染：遇到函数组件就调用它，直到画出真正的树或抛错 */
 let depth = 0
-function renderTree(node, trail) {
-  if (!node || typeof node !== 'object') return
+function renderTree(node, trail, texts) {
+  if (!node || typeof node !== 'object') {
+    if (texts && (typeof node === 'string' || typeof node === 'number')) texts.push(String(node))
+    return
+  }
   if (Array.isArray(node)) {
-    node.forEach((n, i) => renderTree(n, `${trail}[${i}]`))
+    node.forEach((n, i) => renderTree(n, `${trail}[${i}]`, texts))
     return
   }
   const { type, props, kids } = node
@@ -94,10 +97,10 @@ function renderTree(node, trail) {
       throw new Error(`<${type.name || '匿名组件'}> @${trail}：${e.message}`)
     }
     depth--
-    renderTree(out, `${trail}>${type.name || '匿名'}`)
+    renderTree(out, `${trail}>${type.name || '匿名'}`, texts)
     return
   }
-  ;(kids || []).forEach((k, i) => renderTree(k, `${trail}#${i}`))
+  ;(kids || []).forEach((k, i) => renderTree(k, `${trail}#${i}`, texts))
 }
 
 /** 模拟 DSH 的 slots，捕获真实注册出来的组件（连挂载路径一起验证） */
@@ -145,6 +148,19 @@ const D_FULL = {
   comments: { bili: [{ at: new Date().toISOString(), note: '留言' }], xhs: [] },
   grow: { vip: { users: [{ name: 'u', uid: '1' }], doneToday: 1, dailyMax: 6, left: 5 }, taskPending: 1, fuse: {} },
   treasure: [{ kind: '想学', title: 't', url: 'https://example.com', up: 'UP', reason: '理由' }],
+  videoSuggestions: [
+    { at: '2026-10-21', title: '参考片', url: 'https://www.bilibili.com/video/BV1TEST', why: '为什么', action: '建议', prompt: '提示方向', seen: false },
+    { at: '2026-10-21', title: '看过的', url: 'https://www.bilibili.com/video/BV2TEST', why: '为什么', action: '建议', prompt: '提示方向', seen: true },
+  ],
+  videoPrompts: {
+    roleAnchor: '角色锚点：蓝发鲸鱼娘',
+    spec: '规格：横屏 16:9，气泡字幕',
+    items: [
+      { day: 1, at: '2026-10-21', kind: '角色剧情向', topic: '自我介绍', title: '【Day 1】我是鲸檬', status: 'ready', prompt: '镜1 · 0-6s 深海上浮' },
+      { day: 2, at: '2026-10-22', kind: '待定', topic: '待定主题', title: '【Day 2】待定', status: 'template', prompt: '模板' },
+      { topic: '旧的一期（缺 day/title，验证兜底）', status: 'done', prompt: '已完成' },
+    ],
+  },
 }
 
 const CASES = [
@@ -155,6 +171,7 @@ const CASES = [
 
 let pass = 0
 const failures = []
+const allText = []
 
 for (const [label, cfg, d] of CASES) {
   let exp
@@ -185,7 +202,9 @@ for (const [label, cfg, d] of CASES) {
     if (typeof Comp !== 'function') continue
     depth = 0
     try {
-      renderTree(Comp({ close: () => {}, onClose: () => {} }), name)
+      const texts = []
+      renderTree(Comp({ close: () => {}, onClose: () => {} }), name, texts)
+      if (label === '全量数据') allText.push(...texts)
     } catch (e) {
       failures.push(`【${label}】${name}\n      ${e.message}`)
       bad = true
@@ -198,6 +217,23 @@ for (const [label, cfg, d] of CASES) {
 }
 
 console.log('')
+// 全量数据下必须真的渲染出这些文案（防止「不报错但整块没内容」）
+const joined = allText.join('\n')
+const MUST = [
+  ['给你的视频建议', '视频建议卡片'],
+  ['标记已阅', '未阅按钮'],
+  ['每天要做的视频', '视频提示词卡片'],
+  ['该做这条', '当前该做那一期的高亮'],
+  ['下一步 Day 1', '头部进度'],
+  ['复制提示词', '复制按钮'],
+  ['镜1 · 0-6s 深海上浮', '分镜提示词全文'],
+]
+const missing = MUST.filter(([kw]) => !joined.includes(kw)).map(([kw, what]) => `${what}（缺「${kw}」）`)
+if (missing.length) {
+  failures.push(`【全量数据】渲染结果里没找到这些内容：\n      ${missing.join('\n      ')}`)
+  pass = Math.max(0, pass - 1)
+}
+
 if (failures.length) {
   console.error(`❌ 渲染自检失败（${pass}/${CASES.length} 通过）\n`)
   for (const f of failures) console.error('  ' + f)

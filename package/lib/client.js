@@ -282,6 +282,22 @@ window.__ModuleLoader__.load({
       ".jm-vbtn:hover{opacity:.75}",
       ".jm-vbtn.done{background:rgba(63,185,80,.16);color:var(--dsw-alias-state-success-primary);cursor:default}",
       ".jm-video-empty{padding:14px 0;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11.5px}",
+      /* 每天要做的视频（2026-10-21 加）：鲸檬做视频的分镜提示词，折叠展开 */
+      ".jm-vp{display:flex;flex-direction:column;gap:8px;margin-top:12px}",
+      ".jm-vp-item{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;overflow:hidden}",
+      ".jm-vp-item.todo{border-color:var(--dsw-alias-brand-primary)}",
+      ".jm-vp-sum{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 11px;cursor:pointer;font-size:12px;color:var(--dsw-alias-label-primary);list-style:none}",
+      ".jm-vp-sum::-webkit-details-marker{display:none}",
+      ".jm-vp-day{font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;background:rgba(63,199,245,.16);color:var(--dsw-alias-brand-primary);flex:0 0 auto}",
+      ".jm-vp-topic{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".jm-vp-flag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(227,179,65,.16);color:var(--dsw-alias-state-warn-primary);flex:0 0 auto}",
+      ".jm-vp-st{font-size:10px;font-weight:650;padding:1px 7px;border-radius:999px;flex:0 0 auto;background:rgba(127,127,127,.13);color:var(--dsw-alias-label-tertiary)}",
+      ".jm-vp-st.ready{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
+      ".jm-vp-st.done{background:rgba(63,199,245,.15);color:var(--dsw-alias-brand-primary)}",
+      ".jm-vp-body{padding:0 11px 11px;border-top:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-vp-kind{font-size:10.5px;color:var(--dsw-alias-label-tertiary);padding:8px 0 6px}",
+      ".jm-vp-prompt{margin:0;font-family:inherit;font-size:11.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--dsw-alias-label-secondary);max-height:260px;overflow-y:auto}",
+      ".jm-vp-btns{display:flex;gap:7px;padding-top:9px}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -1160,6 +1176,35 @@ window.__ModuleLoader__.load({
           : h("div", { className: "jm-video-empty" }, "还没有视频建议。她推荐后会出现在这里。"));
       // 「已阅」按钮点过 → 变灰并显示 ✓（默认不动，30s 刷新后从后端读回）
 
+      // ── 每天要做的视频（2026-10-21 加，老板：放养鱼页里）─────────────
+      // 鲸檬做视频用的分镜提示词。当前该做的那期高亮，点开看全文 / 复制。
+      const vp = d.videoPrompts || { items: [] };
+      const vpItems = vp.items || [];
+      const todoIdx = vpItems.findIndex((p) => p.status !== "done");
+      const copyText = (t) => { try { navigator.clipboard.writeText(t) } catch (e) {} };
+      const promptCard = h("div", { className: "jm-panel" },
+        h("div", { className: "jm-panel-h" },
+          h("span", null, "每天要做的视频"),
+          vpItems.length
+            ? h("span", { className: "jm-meta" }, todoIdx >= 0 ? `下一步 Day ${vpItems[todoIdx].day ?? todoIdx + 1}` : "都做完了")
+            : null),
+        vpItems.length
+          ? h("div", { className: "jm-vp" },
+            vpItems.map((p, i) => h("details", { key: i, className: `jm-vp-item${i === todoIdx ? " todo" : ""}` },
+              h("summary", { className: "jm-vp-sum" },
+                h("span", { className: "jm-vp-day" }, `Day ${p.day ?? i + 1}`),
+                h("span", { className: "jm-vp-topic" }, p.title || p.topic || ""),
+                i === todoIdx ? h("span", { className: "jm-vp-flag" }, "该做这条") : null,
+                h("span", { className: `jm-vp-st ${p.status || ""}` },
+                  p.status === "done" ? "已完成" : p.status === "ready" ? "就绪" : "待选题")),
+              h("div", { className: "jm-vp-body" },
+                p.kind ? h("div", { className: "jm-vp-kind" }, p.kind) : null,
+                h("pre", { className: "jm-vp-prompt" }, p.prompt || ""),
+                h("div", { className: "jm-vp-btns" },
+                  h("button", { className: "jm-vbtn", title: "只复制这一期的分镜提示词", onClick: () => copyText(p.prompt || "") }, "复制提示词"),
+                  h("button", { className: "jm-vbtn", title: "角色锚点 + 统一规格 + 这一期，全复制", onClick: () => copyText([vp.roleAnchor, vp.spec, p.prompt].filter(Boolean).join("\n\n") + "\n") }, "复制全部"))))))
+          : h("div", { className: "jm-video-empty" }, "还没有视频提示词。她排好会出现在这里。"));
+
       const homeView = h("div", { className: "jm-stack" },
         moodCard,
         cards,
@@ -1169,6 +1214,7 @@ window.__ModuleLoader__.load({
         treasureCard,
         growCard,
         videoCard,
+        promptCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
             h("div", { className: "jm-panel-h" },
