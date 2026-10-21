@@ -13,6 +13,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { readEvents, LOG_PATH } from './lib/event-log.mjs'
+import { todayMood } from './lib/mood.mjs'
 
 const HOME = process.env.HOME || os.homedir()
 const DSH = path.join(HOME, '.dsh')
@@ -249,6 +250,8 @@ const snapshot = {
     ownerMid: cfg?.owner?.mid ?? null,
     ownerName: cfg?.owner?.name ?? null,
   },
+
+  mood: (() => { const m = todayMood(); return { key: m.key, line: m.line } })(),
 
   schedule: {
     windows: cfg?.night?.windows ?? [],

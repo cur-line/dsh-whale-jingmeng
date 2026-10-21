@@ -23,6 +23,7 @@ import { execFile, execFileSync } from 'node:child_process'
 import { resolveNodeExecutable } from './node-runtime.js'
 // 收件箱读取复用工具链的实现（避免在插件里再抄一份 B站 接口 ✓）
 import { pullFeed, makeHeaders } from '../tools/lib/msgfeed.mjs'
+import { todayMood } from '../tools/lib/mood.mjs'
 
 const TICK_MS = 60_000
 const LISTEN_STATE = 'whale-listen.json'
@@ -101,6 +102,13 @@ function diaryPushLines() {
 }
 
 function wakePrompt(st, identity, biliMjs) {
+  // 2026-10-21：今日心情（老板要「多加点人味」）—— 每天第一句话不是模板
+  let moodLine = ''
+  try {
+    const mood = todayMood()
+    moodLine = `【今日心情】${mood.line}`
+  } catch { /* mood 挂了不影响叫醒 */ }
+
   // 小红书走 bili.mjs 的 xhs 子命令（`node bili.mjs xhs feed`），不另开入口。
   // 为什么统一：界面面板、collect.mjs、bili.mjs 三处都按 `bili.mjs xhs …` 写的，
   // 再让调度器单独指向 xhs.mjs 就会出现两套入口，以后必然对不上。
@@ -121,6 +129,7 @@ function wakePrompt(st, identity, biliMjs) {
     ...(xhsReady ? [`小红书入口：node ${JSON.stringify(biliMjs)} xhs <命令>（下文简写 xhs，等价于 bili.mjs xhs）`] : []),
     `【生物钟】你醒了 —— ${st.atText ?? ''}${st.window ? `（窗口 ${st.window}${st.withinWindow ? ' · ' + st.withinWindow : ''}）` : ''}。`,
     '',
+    ...(moodLine ? [moodLine, ''] : []),
     // 2026-10-20：先告诉她"冷了几天"，再给流程 —— 心情在前，任务在后 ✓
     // 2026-10-20：还没跑过启动测试 → 第一句就提醒主人（很多人卡在"找不到会话/没给权限"）
     ...(() => {

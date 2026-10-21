@@ -23,6 +23,7 @@ import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { logEvent, readEvents } from '../lib/event-log.mjs'
+import { todayMood } from '../lib/mood.mjs'
 import { config } from '../lib/config.mjs'
 
 const HOME = process.env.USERPROFILE || process.env.HOME || os.homedir()
@@ -135,9 +136,11 @@ function draftIdeas(favs, events) {
 
 /** 生成 Markdown 文稿 */
 function render(ideas, favs, events, dyHot = []) {
+  const mood = todayMood()
   const head = [
     `# ${today()} 灵感文稿`,
     '',
+    `> 🐳 ${mood.line}`,
     '> 鲸檬今天的想法收集（来源：B站视频/评论、小红书笔记/评论、收藏夹、抖音热点）。',
     '> 视频制作 / 审核 / 发布由主人负责；这里只提供点子。',
     '',

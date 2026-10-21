@@ -256,6 +256,11 @@ window.__ModuleLoader__.load({
       ".jm-tres-title:hover{text-decoration:underline}",
       ".jm-tres-up{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
       ".jm-tres-reason{font-size:11.5px;color:var(--dsw-alias-label-secondary);line-height:1.6}",
+
+      /* 今日心情（2026-10-21 加：每天第一句话不是模板） */
+      ".jm-mood{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:10px;background:linear-gradient(120deg,rgba(63,199,245,.10),rgba(232,121,166,.10));border:.5px solid var(--dsw-alias-border-l1);font-size:13px;line-height:1.7;color:var(--dsw-alias-label-primary);margin-bottom:10px}",
+      ".jm-mood-ic{font-size:16px;flex:0 0 auto}",
+      ".jm-mood-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.12);color:var(--dsw-alias-label-tertiary);flex:0 0 auto}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -1023,7 +1028,15 @@ window.__ModuleLoader__.load({
         h("div", { className: "jm-thoughts-b" },
           thoughts.map((w, i) => h("div", { key: i, className: "jm-thought" }, w)))) : null;
 
+      // 今日心情（2026-10-21 加）
+      const mood = d.mood || {};
+      const moodCard = mood.line ? h("div", { className: "jm-mood" },
+        h("span", { className: "jm-mood-ic" }, "🐳"),
+        h("span", { className: "jm-mood-tag" }, mood.key === "proud" ? "得意" : mood.key === "lazy" ? "犯懒" : mood.key === "curious" ? "好奇" : mood.key === "hungry" ? "馋" : "闷"),
+        h("span", null, mood.line)) : null;
+
       const homeView = h("div", { className: "jm-stack" },
+        moodCard,
         cards,
         thoughtsCard,
         quickActions,
