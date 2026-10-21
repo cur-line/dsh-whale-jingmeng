@@ -13,6 +13,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { publishNote, clampNote, LIMITS, XhsError } from '../lib/xhs-client.mjs'
+import { appendCompliance } from '../lib/compliance.mjs'
 import * as xhsQuota from '../lib/xhs-quota.mjs'
 import { logEvent } from '../lib/event-log.mjs'
 import { config } from '../lib/config.mjs'
@@ -136,7 +137,9 @@ if (DRY) {
   console.log(`标题（${clamped.title.length}/${LIMITS.title} 字）：${clamped.title}`)
   console.log()
   console.log(`正文（${clamped.content.length}/${LIMITS.content} 字）：`)
-  console.log(clamped.content)
+  // dry 预览也要展示"最终会发什么"（含合规三句），不然 --dry 与 --go 看到的不一样 ✗
+  const preview = process.argv.includes('--no-compliance') ? clamped.content : appendCompliance(clamped.content, { auto: true })
+  console.log(preview)
   console.log()
   console.log(`图片 ${images.length} 张：`)
   images.forEach((p, i) => {
@@ -149,10 +152,15 @@ if (DRY) {
 }
 
 // ── 真发 ──
+// 合规三句（2026-10-21 老板确认）：插件里发布的小红书内容**默认**带上；
+// 不想带就加 --no-compliance（比如你当场手动发的那篇）。
+const noteContent = process.argv.includes('--no-compliance')
+  ? clamped.content
+  : appendCompliance(clamped.content, { auto: true })
 console.log(`正在发布「${clamped.title}」…`)
 let result
 try {
-  result = await publishNote(clamped.title, clamped.content, images)
+  result = await publishNote(clamped.title, noteContent, images)
 } catch (e) {
   console.error(`✗ 发布失败：${e.message}`)
   if (e.hint?.()) console.error(`→ ${e.hint()}`)

@@ -11,6 +11,7 @@ import crypto from 'node:crypto'
 //    但原版从未 import 它 → 发动态这条路一跑就 ReferenceError，等于一直是坏的。
 //    我们 fork 后补上。
 import { gate, record } from '../lib/quota-gate.mjs'
+import { appendCompliance } from '../lib/compliance.mjs'
 
 const argv = process.argv.slice(2)
 const mode = argv[0]
@@ -21,7 +22,7 @@ for (let i = 1; i < argv.length; i += 1) {
 }
 const isDry = args.has('dry')
 const isGo = args.has('go')
-const text = args.get('text')
+let text = args.get('text')
 const dynId = args.get('id')
 
 const credPath = path.join((process.env.USERPROFILE || process.env.HOME || '/'), '.bili-ai', 'credentials.json')
@@ -82,6 +83,10 @@ if (mode === 'list') {
 if (mode === 'post') {
   if (!text) { console.error('post 需要 --text'); process.exit(2) }
   if (!isDry && !isGo) { console.error('必须显式 --dry 或 --go'); process.exit(2) }
+  // 合规三句（2026-10-21 老板确认）：只有"她自己决定发的"（--auto）才追加；
+  // 主人当场发的不动 ✗；已经带过"非官方账号"的不重复 ✓
+  const AUTO = process.argv.includes('--auto')
+  text = appendCompliance(text, { auto: AUTO })
   console.log('=== 登录态 ===')
   const mid = await whoami()
   const body = JSON.stringify({

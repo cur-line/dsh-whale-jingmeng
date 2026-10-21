@@ -239,6 +239,9 @@ function platformStatus() {
       feedCount: xhsEvents.filter((e) => e.kind === 'xhs-feed').length,
       commentedCount: Object.keys(xhsCommented?.seen ?? xhsCommented ?? {}).length || 0,
       dataDir: xhsDir,
+      // AI 虚拟人标签（2026-10-21 老板确认）：小红书 2026-08-07 新规要求亮明身份，
+      // 标签要在 App 里手动设 → 插件只记录"亮没亮"，面板提示
+      aiIdentity: Boolean(cfg?.xhs?.aiIdentity),
     },
   }
 }

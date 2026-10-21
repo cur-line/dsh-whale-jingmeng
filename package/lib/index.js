@@ -188,7 +188,7 @@ function isLoopbackReq(req) {
       //   现在两种都收：{ config: {...} } 或直接 {...}
       const incoming = (body && typeof body.config === 'object' && body.config) || body || {}
       // 顶层白名单：只合并认识的键（防止被塞任意字段 ✓）
-      const KNOWN = new Set(['persona', 'preferences', 'notify', 'aliases', 'owner', 'self', 'quota', 'share', 'listen', 'night', 'diary', 'interact', 'toolsPath'])
+      const KNOWN = new Set(['persona', 'preferences', 'notify', 'aliases', 'owner', 'self', 'quota', 'share', 'listen', 'night', 'diary', 'interact', 'toolsPath', 'xhs'])
       const filtered = {}
       for (const [k, v] of Object.entries(incoming)) if (KNOWN.has(k)) filtered[k] = v
       const next = merge(cur, filtered)

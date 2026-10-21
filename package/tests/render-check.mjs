@@ -134,7 +134,7 @@ const D_FULL = {
   schedule: { current: { planAt: 1, msUntil: 3.6e6, atText: '23:42', fired: false } },
   platforms: {
     bili: { name: '鲸檬', mid: '3747573363902837', logged: true, todayEvents: 1, events: 2, shareOn: true, commentOn: true },
-    xhs: { name: '鲸檬', logged: true, todayEvents: 1, events: 2, readCount: 3, feedCount: 1 },
+    xhs: { name: '鲸檬', logged: true, todayEvents: 1, events: 2, readCount: 3, feedCount: 1, aiIdentity: true },
   },
   checks: [{ ok: true, name: 'cookie' }],
   switches: { warmup: true, share: true, listenComment: false },

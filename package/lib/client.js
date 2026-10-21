@@ -315,6 +315,8 @@ window.__ModuleLoader__.load({
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
       ".jm-plat-live.on{background:rgba(63,185,80,.15);color:var(--dsw-alias-state-success-primary)}",
       ".jm-plat-live.off{background:rgba(227,179,65,.15);color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-plat-btn{font-size:10px;font-weight:650;padding:1px 7px;border-radius:999px;border:0;cursor:pointer;background:rgba(63,199,245,.16);color:var(--dsw-alias-brand-primary)}",
+      ".jm-plat-btn:hover{opacity:.72}",
 
       /* 日记 */
       ".jm-diary{background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:13px 15px}",
@@ -1229,6 +1231,23 @@ window.__ModuleLoader__.load({
                   h("button", { className: "jm-vbtn", title: "角色锚点 + 统一规格 + 这一期，全复制", onClick: () => copyText([vp.roleAnchor, vp.spec, p.prompt].filter(Boolean).join("\n\n") + "\n") }, "复制全部"))))))
           : h("div", { className: "jm-video-empty" }, "还没有视频提示词。她排好会出现在这里。"));
 
+      // ── AI 虚拟人标签（2026-10-21 老板确认）──────────────────────────────
+      // 小红书 2026-08-07 新规：AI 虚拟人账号要在资料页亮明身份 + 展示「AI虚拟人」标签，
+      // 未标识 → 限流（主动标识不影响流量，还有优先体验新功能的可能）。
+      // 标签要在 App 里手动设 —— 插件做不了那一步，所以面板只负责：显示状态 + 指引，
+      // 你亮完回来点一下「已亮」，插件记住（下次不会一直提醒你 ✗）。
+      const saveXhsIdentity = async (declared) => {
+        try {
+          const r = await fetch(`${API}/settings`, {
+            method: "POST",
+            headers: { "content-type": "application/json", accept: "application/json" },
+            body: JSON.stringify({ xhs: { aiIdentity: declared } }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (j.ok) load();
+        } catch (e) {}
+      };
+
       const homeView = h("div", { className: "jm-stack" },
         moodCard,
         cards,
@@ -1268,6 +1287,11 @@ window.__ModuleLoader__.load({
                 h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.xhs?.todayEvents ?? 0} 今日 / ${plat.xhs?.events ?? 0} 累计`)),
                 h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),
                 h("div", { className: "jm-plat-row" }, h("span", null, "选题"), h("b", null, `${plat.xhs?.feedCount ?? 0} 轮`)),
+                h("div", { className: "jm-plat-row" }, h("span", null, "AI虚拟人"),
+                  h("b", { className: plat.xhs?.aiIdentity ? "on" : "off" }, plat.xhs?.aiIdentity ? "✓ 已亮" : "⚠ 未亮"),
+                  h("button", { className: "jm-plat-btn", title: "去小红书 App：我的 → 编辑资料 → 职业 → 选「AI创作者」/「AI虚拟人」；亮完回来点这里",
+                    onClick: () => saveXhsIdentity(!(plat.xhs?.aiIdentity ?? false)) },
+                    plat.xhs?.aiIdentity ? "取消" : "已亮")),
                 h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
 
 
