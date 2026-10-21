@@ -760,24 +760,33 @@ window.__ModuleLoader__.load({
 
       return h("div", null,
         h("div", { className: "blw-group" }, "待审核" + (items.length ? `（${items.length} 条）` : "")),
-        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她**回复别人 / 给别人评论**之前，草稿都先到这儿 —— 你点「发」才发 ✓（B 站 + 小红书两边排队；否掉也会记一笔，她会学着改 ✓）"),
+        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她**回复别人 / 给别人评论 / 发动态 / 发图文**之前，草稿都先到这儿 —— 你点「发」才发 ✓（B 站 + 小红书两边排队；否掉也会记一笔，她会学着改 ✓）"),
         h("div", { className: "blw-rows" },
           items.length === 0
             ? h("div", { className: "blw-hint", style: { padding: "8px 0" } }, "（队列是空的 ✓）")
-            : items.map((x) => h("div", { className: "blw-row", key: `${x.platform ?? 'bili'}:${x.id}` },
-              h("div", null,
-                h("div", { className: "blw-label" },
-                  `→ ${x.who || x.author || "对方"}`,
-                  h("span", { className: "blw-badge" }, String(x.at ?? "").slice(5, 16).replace("T", " ")),
-                  x.platform === 'xhs'
-                    ? h("span", { className: "blw-plat xhs" }, "小红书")
-                    : h("span", { className: "blw-plat bili" }, "B 站")),
-                x.src ? h("div", { className: "blw-hint" }, `他说：${String(x.src).slice(0, 80)}`) : null,
-                x.title ? h("div", { className: "blw-hint" }, `要去的地方：${String(x.title).slice(0, 80)}`) : null,
-                h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要回：${String(x.message ?? x.text ?? '').slice(0, 160)}`)),
-              h("div", { style: { display: "flex", gap: "6px" } },
-                h("button", { className: "blw-btn", disabled: !!busy, onClick: () => act(x.id, "approve", x.platform ?? 'bili') }, busy === x.id + "approve" ? "发出中…" : "发"),
-                h("button", { className: "blw-btn blw-btn2", disabled: !!busy, onClick: () => act(x.id, "reject", x.platform ?? 'bili') }, "删"))))),
+            : items.map((x) => {
+              // 四类待审（2026-10-21 老板定的）：B站回复 / 小红书评论 / B站动态 / 小红书图文
+              const PLAT_LABEL = {
+                'bili': 'B 站回复', 'xhs': '小红书评论', 'bili-dynamic': 'B 站动态', 'xhs-note': '小红书图文',
+              }
+              const pName = PLAT_LABEL[String(x.platform ?? 'bili')] ?? 'B 站回复'
+              const isReply = x.platform === 'bili' || x.platform === 'xhs'
+              return h("div", { className: "blw-row", key: `${x.platform ?? 'bili'}:${x.id}` },
+                h("div", null,
+                  h("div", { className: "blw-label" },
+                    pName,
+                    h("span", { className: "blw-badge" }, String(x.at ?? "").slice(5, 16).replace("T", " "))),
+                  isReply && h("div", { className: "blw-hint" }, `→ ${x.who || x.author || "对方"}`),
+                  isReply && x.src ? h("div", { className: "blw-hint" }, `他说：${String(x.src).slice(0, 80)}`) : null,
+                  isReply && h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要回：${String(x.message ?? x.text ?? '').slice(0, 160)}`),
+                  x.platform === 'bili-dynamic' && h("div", { className: "blw-hint", style: { whiteSpace: "pre-wrap", color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要发（动态）：${String(x.text ?? '').slice(0, 200)}`),
+                  x.platform === 'xhs-note' && h("div", null,
+                    h("div", { className: "blw-hint" }, `你要发（图文）· 标题：${String(x.title ?? '')}`),
+                    h("div", { className: "blw-hint", style: { whiteSpace: "pre-wrap" } }, String(x.content ?? '').slice(0, 200)),
+                    h("div", { className: "blw-hint" }, `配图 ${(x.images ?? []).length} 张`))),
+                h("div", { style: { display: "flex", gap: "6px" } },
+                  h("button", { className: "blw-btn", disabled: !!busy, onClick: () => act(x.id, "approve", x.platform ?? 'bili') }, busy === x.id + "approve" ? "发出中…" : "发"),
+                  h("button", { className: "blw-btn blw-btn2", disabled: !!busy, onClick: () => act(x.id, "reject", x.platform ?? 'bili') }, "删")))})),
         msg ? h("div", { className: msg.startsWith("✓") ? "blw-hint" : "blw-err" }, msg) : null);
     }
 

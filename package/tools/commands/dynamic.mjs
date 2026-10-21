@@ -82,7 +82,33 @@ if (mode === 'list') {
 
 if (mode === 'post') {
   if (!text) { console.error('post 需要 --text'); process.exit(2) }
+  // ⚠️ 2026-10-21 老板要求：B 站动态也要审批（跟评论回复一个口径）——
+  //   写草稿（--draft）进队列 → 主人在养鱼页点「发」才发；--go 必须带 --approved <id>。
+  const DRAFT = args.has('draft')
+  const APPROVED = String(args.get('approved') ?? '')
+  const PENDING_DYNAMIC = path.join(process.env.USERPROFILE || process.env.HOME || '/', '.dsh', 'bili-whale-dynamic-queue.json')
+  const readDrafts = () => { try { return JSON.parse(fs.readFileSync(PENDING_DYNAMIC, 'utf8')).items ?? [] } catch { return [] } }
+  const writeDrafts = (items) => { fs.mkdirSync(path.dirname(PENDING_DYNAMIC), { recursive: true }); fs.writeFileSync(PENDING_DYNAMIC, JSON.stringify({ items }, null, 2) + '\n') }
+  if (DRAFT) {
+    if (isDry || isGo) { console.error('--draft 不能和 --dry/--go 同时给（--draft 就是写草稿、先不发）。'); process.exit(2) }
+    const items = readDrafts()
+    const id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+    items.push({ id, platform: 'bili-dynamic', text, at: new Date().toISOString() })
+    writeDrafts(items)
+    console.log(`✓ 已写进待审队列（id ${id}）—— 等主人在「养鱼 → 待审核」点「发」`)
+    process.exit(0)
+  }
   if (!isDry && !isGo) { console.error('必须显式 --dry 或 --go'); process.exit(2) }
+  if (isGo && !APPROVED) {
+    console.error('✗ B 站动态必须先过审（老板 2026-10-21 定的硬规矩）')
+    console.error('  正确姿势：加 --draft 写草稿 → 主人在「养鱼 → 待审核」点「发」')
+    console.error('  面板点「发」时插件会自动带上 --approved <id> ✓')
+    process.exit(3)
+  }
+  if (APPROVED && !readDrafts().some((it) => String(it.id) === APPROVED)) {
+    console.error(`✗ --approved ${APPROVED} 不在待审队列里（可能已发或被删）→ 拒绝发送`)
+    process.exit(3)
+  }
   // 合规三句（2026-10-21 老板确认）：只有"她自己决定发的"（--auto）才追加；
   // 主人当场发的不动 ✗；已经带过"非官方账号"的不重复 ✓
   const AUTO = process.argv.includes('--auto')

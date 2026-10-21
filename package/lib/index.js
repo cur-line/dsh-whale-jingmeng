@@ -318,6 +318,10 @@ function isLoopbackReq(req) {
     const PENDING = path.join(HOME, '.bili-ai', 'pending-replies.json')
     // 小红书评论待审（2026-10-21 老板要求：评论回复必须过审）—— 和 B 站回复共用一个面板
     const XHS_PENDING = path.join(DSH_HOME, 'xhs', 'pending-comments.json')
+    // B 站动态待审（2026-10-21 老板要求：动态也要审）—— 与动态命令同路径
+    const DYNAMIC_PENDING = path.join(HOME, '.dsh', 'bili-whale-dynamic-queue.json')
+    // 小红书图文待审（2026-10-21 老板要求：图文也要审）—— 与 note 命令同路径
+    const NOTES_PENDING = path.join(HOME, '.dsh', 'xhs', 'pending-notes.json')
     const readPending = (file, platform) => {
       try { return (JSON.parse(fs.readFileSync(file, 'utf8')).items ?? []).map((it) => ({ ...it, platform })) } catch { return [] }
     }
@@ -328,8 +332,13 @@ function isLoopbackReq(req) {
     const stripPlatform = (items) => items.map(({ platform, ...rest }) => rest)
     route('exact', '/dsh-bili/api/pending', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
-      // 两边合在一起给面板：B 站回复（platform=bili）+ 小红书评论（platform=xhs）
-      json(res, 200, { ok: true, items: [...readPending(PENDING, 'bili'), ...readPending(XHS_PENDING, 'xhs')] })
+      // 四类合在一起给面板：B站回复(bili) · 小红书评论(xhs) · B站动态(bili-dynamic) · 小红书图文(xhs-note)
+      json(res, 200, { ok: true, items: [
+        ...readPending(PENDING, 'bili'),
+        ...readPending(XHS_PENDING, 'xhs'),
+        ...readPending(DYNAMIC_PENDING, 'bili-dynamic'),
+        ...readPending(NOTES_PENDING, 'xhs-note'),
+      ] })
     })
     route('exact', '/dsh-bili/api/pending/reject', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
@@ -337,14 +346,16 @@ function isLoopbackReq(req) {
       const b = JSON.parse(await readBody(req) || '{}')
       const id = String(b.id ?? '')
       if (!id) { json(res, 400, { ok: false, error: '需要 id' }); return }
-      // 小红书评论草稿：直接从队列删掉（否了也记一笔，她会学到"这种不要" ✓）
-      if (String(b.platform ?? '') === 'xhs') {
+      // 小红书评论 / B站动态 / 小红书图文 草稿：直接从对应队列删掉（否了也记一笔 ✓）
+      const REJECT_FILES = { xhs: XHS_PENDING, 'bili-dynamic': DYNAMIC_PENDING, 'xhs-note': NOTES_PENDING }
+      const rejectFile = REJECT_FILES[String(b.platform ?? '')]
+      if (rejectFile) {
         try {
-          const left = readPending(XHS_PENDING, 'xhs').filter((it) => String(it.id) !== id)
-          writePendingFile(XHS_PENDING, stripPlatform(left))
+          const left = readPending(rejectFile, b.platform).filter((it) => String(it.id) !== id)
+          writePendingFile(rejectFile, stripPlatform(left))
           try {
             fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
-              JSON.stringify({ at: new Date().toISOString(), kind: 'reply-rejected', target: null, note: `主人否掉了小红书评论草稿 ${id}${b.reason ? '：' + String(b.reason).slice(0, 80) : ''}` }) + '\n')
+              JSON.stringify({ at: new Date().toISOString(), kind: 'reply-rejected', target: null, note: `主人否掉了${b.platform === 'xhs' ? '小红书评论' : b.platform === 'bili-dynamic' ? 'B站动态' : '小红书图文'}草稿 ${id}${b.reason ? '：' + String(b.reason).slice(0, 80) : ''}` }) + '\n')
           } catch {}
           json(res, 200, { ok: true })
         } catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }) }
@@ -400,6 +411,69 @@ function isLoopbackReq(req) {
         }
         return
       }
+      // ── B 站动态草稿（platform=bili-dynamic）────────────────────────────
+      // 老板 2026-10-21：动态也要审。点「发」才跑 dynamic post --approved --go。
+      if (String(b.platform ?? '') === 'bili-dynamic') {
+        if (approving.has(id)) { json(res, 409, { ok: false, error: '这条动态正在发送，请等待结果' }); return }
+        approving.add(id)
+        try {
+          const item = readPending(DYNAMIC_PENDING, 'bili-dynamic').find((it) => String(it.id) === id)
+          if (!item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
+          const sent = await new Promise((resolve) => {
+            execFile(NODE_EXE, [resolveBiliMjs(), 'dynamic', 'post',
+              '--text', String(item.text), '--approved', id, '--go', '--auto'],
+              { timeout: 120000, windowsHide: true },
+              (err, stdout, stderr) => resolve({ err, out: String(stdout ?? ''), stderr: String(stderr ?? '') }))
+          })
+          const ok = !sent.err && /✅ 已发布/.test(sent.out)
+          if (ok) writePendingFile(DYNAMIC_PENDING, stripPlatform(readPending(DYNAMIC_PENDING, 'bili-dynamic').filter((it) => String(it.id) !== id)))
+          try {
+            fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
+              JSON.stringify({ at: new Date().toISOString(), kind: ok ? 'reply-sent' : 'reply-failed', target: null,
+                note: `${ok ? '主人批准并发出' : '发送失败，草稿保留'} · B站动态「${String(item.text).slice(0, 50)}」` }) + '\n')
+          } catch {}
+          json(res, 200, { ok, out: sent.out.slice(-600), err: sent.stderr.slice(0, 400) })
+        } catch (e) {
+          json(res, 500, { ok: false, error: String(e?.message ?? e) })
+        } finally {
+          approving.delete(id)
+        }
+        return
+      }
+
+      // ── 小红书图文草稿（platform=xhs-note）──────────────────────────────
+      // 老板 2026-10-21：图文也要审。点「发」才跑 xhs note --approved --go。
+      if (String(b.platform ?? '') === 'xhs-note') {
+        if (approving.has(id)) { json(res, 409, { ok: false, error: '这篇图文正在发送，请等待结果' }); return }
+        approving.add(id)
+        try {
+          const item = readPending(NOTES_PENDING, 'xhs-note').find((it) => String(it.id) === id)
+          if (!item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
+          const cfgX = readConfig()
+          const toolsX = cfgX.toolsPath || path.join(HERE, '..', 'tools', 'bili.mjs')
+          const xhsMjs = path.join(path.dirname(toolsX), 'xhs.mjs')
+          const sent = await new Promise((resolve) => {
+            execFile(NODE_EXE, [xhsMjs, 'note', '--title', String(item.title), '--content', String(item.content),
+              '--images', String(item.images ?? []).join(','), '--approved', id, '--go'],
+              { timeout: 120000, windowsHide: true },
+              (err, stdout, stderr) => resolve({ err, out: String(stdout ?? ''), stderr: String(stderr ?? '') }))
+          })
+          const ok = !sent.err
+          if (ok) writePendingFile(NOTES_PENDING, stripPlatform(readPending(NOTES_PENDING, 'xhs-note').filter((it) => String(it.id) !== id)))
+          try {
+            fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
+              JSON.stringify({ at: new Date().toISOString(), kind: ok ? 'reply-sent' : 'reply-failed', target: String(item.title ?? '').slice(0, 40) || null,
+                note: `${ok ? '主人批准并发出' : '发送失败，草稿保留'} · 小红书图文「${String(item.title).slice(0, 40)}」` }) + '\n')
+          } catch {}
+          json(res, 200, { ok, out: sent.out.slice(-600), err: sent.stderr.slice(0, 400) })
+        } catch (e) {
+          json(res, 500, { ok: false, error: String(e?.message ?? e) })
+        } finally {
+          approving.delete(id)
+        }
+        return
+      }
+
       if (approving.has(id)) { json(res, 409, { ok: false, error: '这条回复正在发送，请等待结果' }); return }
       approving.add(id)
       const run = (args) => new Promise((resolve) => {

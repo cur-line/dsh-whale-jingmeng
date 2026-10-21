@@ -131,6 +131,30 @@ try {
 if (!q.ok) die(`✗ ${q.reason}\n  今日已发 ${q.used}/${q.limit}。日记可以照写，笔记明天再发。`, 2)
 console.log(`[限额闸] ✓ 发布 ${q.used}/${q.limit}（小红书独立账本）`)
 
+// ── 待审（2026-10-21 老板要求：小红书图文也要审批）─────────────────
+//   跟评论一个口径：--draft 写草稿进队列 → 主人在养鱼页点「发」才发；
+//   --go 必须带 --approved <id>（且草稿真在队列里），否则拒。
+const DRAFT = !!opt.draft
+const APPROVED = typeof opt.approved === 'string' ? opt.approved : ''
+const PENDING_NOTES = path.join(HOME, '.dsh', 'xhs', 'pending-notes.json')
+const readNotes = () => { try { return JSON.parse(fs.readFileSync(PENDING_NOTES, 'utf8')).items ?? [] } catch { return [] } }
+const writeNotes = (items) => { fs.mkdirSync(path.dirname(PENDING_NOTES), { recursive: true }); fs.writeFileSync(PENDING_NOTES, JSON.stringify({ items }, null, 2) + '\n') }
+if (DRAFT) {
+  if (GO) die('--draft 不能和 --go 同时给（--draft 就是写草稿、先不发）。')
+  const items = readNotes()
+  const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+  items.push({ id, platform: 'xhs-note', title: clamped.title, content: clamped.content, images: images.map(String), at: new Date().toISOString() })
+  writeNotes(items)
+  console.log(`✓ 已写进待审队列（id ${id}）—— 等主人在「养鱼 → 待审核」点「发」`)
+  process.exit(0)
+}
+if (GO && !APPROVED) {
+  die('✗ 小红书图文必须先过审（老板 2026-10-21 定的硬规矩）\n  正确姿势：加 --draft 写草稿 → 主人在「养鱼 → 待审核」点「发」\n  面板点「发」时插件会自动带上 --approved <id> ✓', 3)
+}
+if (APPROVED && !readNotes().some((it) => String(it.id) === APPROVED)) {
+  die(`✗ --approved ${APPROVED} 不在待审队列里（可能已发或被删）→ 拒绝发送`, 3)
+}
+
 // ── 干跑 ──
 if (DRY) {
   console.log('[--dry 只打印，什么都没发]\n')
