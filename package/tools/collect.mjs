@@ -123,14 +123,25 @@ for (const w of watched) if (w.bv && w.title) bvTitle.set(w.bv, w.title)
 for (const e of events) {
   if (e.target && e.note && !bvTitle.has(e.target)) bvTitle.set(e.target, String(e.note).slice(0, 60))
 }
-// 补 note：interact 类事件，若 note 只是动作名则补上「《标题》」
+// 事件 → 原页面地址（2026-10-21 加，老板要求：留言/评论点一下要能跳过去）。
+// B站 BV 号 → 视频页；小红书 noteId（24 位 hex）→ 笔记页；其余（diary-xxx / null）没有页面，留空。
+const eventUrl = (e) => {
+  const t = String(e?.target ?? '')
+  if (!t) return ''
+  if (/^BV[0-9A-Za-z]{8,}$/.test(t)) return `https://www.bilibili.com/video/${t}`
+  if (/^[0-9a-f]{24}$/.test(t)) return `https://www.xiaohongshu.com/explore/${t}`
+  return ''
+}
+// 补 url（每条都给，前端拿它渲染可点链接）+ 补 note：
+// interact 类事件，若 note 只是动作名则补上「《标题》」
 const enrichedEvents = events.map((e) => {
+  const base = { ...e, url: eventUrl(e) }
   if (e.kind === 'interact' && e.target && bvTitle.has(e.target)) {
     const act = { like: '点赞', fav: '收藏', coin: '投币', share: '转发', status: '查状态' }[e.meta?.action] || e.meta?.action || e.note
-    if (e.undo) return { ...e, note: `${act}（撤销）《${bvTitle.get(e.target)}》` }
-    return { ...e, note: `${act}《${bvTitle.get(e.target)}》` }
+    if (e.undo) return { ...base, note: `${act}（撤销）《${bvTitle.get(e.target)}》` }
+    return { ...base, note: `${act}《${bvTitle.get(e.target)}》` }
   }
-  return e
+  return base
 })
 
 // ── 5. 账号与额度 ────────────────────────────────────────────────

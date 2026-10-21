@@ -87,6 +87,7 @@ function renderTree(node, trail, texts) {
     return
   }
   const { type, props, kids } = node
+  if (texts && texts.links && props && typeof props.href === 'string') texts.links.push(props.href)
   if (typeof type === 'function') {
     if (++depth > 80) { depth--; return }
     let out
@@ -143,9 +144,12 @@ const D_FULL = {
     statusCount: { pending: 1, published: 1 },
     queue: [{ status: 'pending', text: 'x', date: '2026-10-21' }],
   },
-  events: [{ at: new Date().toISOString(), kind: 'diary', note: '写了日记', target: 'BV1xxxxxxxxx' }],
+  events: [{ at: new Date().toISOString(), kind: 'interact', note: '点赞《X》', target: 'BV1Yku16CEzX', url: 'https://www.bilibili.com/video/BV1Yku16CEzX' }],
   mood: { key: 'hungry', line: '今天想吃白饭。' },
-  comments: { bili: [{ at: new Date().toISOString(), note: '留言' }], xhs: [] },
+  comments: {
+    bili: [{ at: new Date().toISOString(), note: '留言', target: 'BV1Yku16CEzX', url: 'https://www.bilibili.com/video/BV1Yku16CEzX' }],
+    xhs: [{ at: new Date().toISOString(), note: '评论「做会计前后」', target: '6acdc8ec000000001301905d', url: 'https://www.xiaohongshu.com/explore/6acdc8ec000000001301905d' }],
+  },
   grow: { vip: { users: [{ name: 'u', uid: '1' }], doneToday: 1, dailyMax: 6, left: 5 }, taskPending: 1, fuse: {} },
   treasure: [{ kind: '想学', title: 't', url: 'https://example.com', up: 'UP', reason: '理由' }],
   videoSuggestions: [
@@ -172,6 +176,7 @@ const CASES = [
 let pass = 0
 const failures = []
 const allText = []
+const allLinks = []
 
 for (const [label, cfg, d] of CASES) {
   let exp
@@ -203,8 +208,9 @@ for (const [label, cfg, d] of CASES) {
     depth = 0
     try {
       const texts = []
+      texts.links = []
       renderTree(Comp({ close: () => {}, onClose: () => {} }), name, texts)
-      if (label === '全量数据') allText.push(...texts)
+      if (label === '全量数据') { allText.push(...texts); allLinks.push(...texts.links) }
     } catch (e) {
       failures.push(`【${label}】${name}\n      ${e.message}`)
       bad = true
@@ -229,6 +235,13 @@ const MUST = [
   ['镜1 · 0-6s 深海上浮', '分镜提示词全文'],
 ]
 const missing = MUST.filter(([kw]) => !joined.includes(kw)).map(([kw, what]) => `${what}（缺「${kw}」）`)
+// 留言/评论必须能点进去跳原页面（老板 2026-10-21 要求）
+if (!allLinks.some((u) => u.startsWith('https://www.xiaohongshu.com/explore/'))) {
+  missing.push('小红书留言的可点链接')
+}
+if (!allLinks.some((u) => u.startsWith('https://www.bilibili.com/video/'))) {
+  missing.push('B站视频的可点链接')
+}
 if (missing.length) {
   failures.push(`【全量数据】渲染结果里没找到这些内容：\n      ${missing.join('\n      ')}`)
   pass = Math.max(0, pass - 1)

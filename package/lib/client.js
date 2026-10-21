@@ -245,6 +245,14 @@ window.__ModuleLoader__.load({
       ".jm-cmt-list{display:flex;flex-direction:column;gap:5px;max-height:130px;overflow-y:auto}",
       ".jm-cmt-item{display:flex;gap:6px;align-items:flex-start;font-size:11.5px;line-height:1.6;color:var(--dsw-alias-label-secondary)}",
       ".jm-cmt-t{font-family:ui-monospace,monospace;font-size:10px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;padding-top:1px}",
+      /* 留言可点（2026-10-21 加）：跳转到原页面 —— 小红书笔记 / B站视频 */
+      ".jm-cmt-text{color:inherit;text-decoration:none;cursor:pointer}",
+      ".jm-cmt-body{flex:1;min-width:0}",
+      ".jm-cmt-quote{margin-top:3px;font-size:10.5px;line-height:1.6;color:var(--dsw-alias-label-tertiary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}",
+      "a.jm-cmt-text:hover{text-decoration:underline;color:var(--dsw-alias-brand-primary)}",
+      ".jm-cmt-go{font-size:10px;color:var(--dsw-alias-brand-primary);opacity:.85}",
+      "a.jm-tag.link{cursor:pointer;color:var(--dsw-alias-brand-primary);background:rgba(63,199,245,.13)}",
+      "a.jm-tag.link:hover{text-decoration:underline}",
       ".jm-cmt-empty{padding:14px 0;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11.5px}",
 
       /* 潜水箱（2026-10-21 加）：收藏带理由 = 她的宝贝 */
@@ -1033,9 +1041,10 @@ window.__ModuleLoader__.load({
           h("span", { className: "jm-ev-time" }, hh),
           h("span", { className: `jm-ev-kind tone-${KIND_TONE[g] || "idle"}` }, KIND_LABEL[e.kind] || e.kind),
           h("span", { className: "jm-ev-text" }, e.note || ""),
-          e.target ? (e.kind === "interact" && String(e.target).startsWith("BV")
-            ? h("a", { className: "jm-tag", href: `https://www.bilibili.com/video/${e.target}`, target: "_blank", rel: "noreferrer" }, `去B站看 ${String(e.target).slice(0, 14)}`)
-            : h("code", { className: "jm-tag" }, String(e.target).slice(0, 22))) : null,
+          e.url
+            ? h("a", { className: "jm-tag link", href: e.url, target: "_blank", rel: "noreferrer", title: `打开原页面：${e.url}` },
+              String(e.target).startsWith("BV") ? `去B站看 ${String(e.target).slice(0, 12)}` : `看原帖 ${String(e.target).slice(0, 8)} ↗`)
+            : (e.target ? h("code", { className: "jm-tag" }, String(e.target).slice(0, 22)) : null),
           !isToday ? h("code", { className: "jm-tag" }, dd) : null);
       };
 
@@ -1095,7 +1104,12 @@ window.__ModuleLoader__.load({
           ? h("div", { className: "jm-cmt-list" },
             items.map((c, i) => h("div", { key: i, className: "jm-cmt-item" },
               h("span", { className: "jm-cmt-t" }, fmtCmtTime(c.at)),
-              h("span", null, c.note || ""))))
+              h("div", { className: "jm-cmt-body" },
+                c.url
+                  ? h("a", { className: "jm-cmt-text", href: c.url, target: "_blank", rel: "noreferrer", title: `打开原页面：${c.url}` },
+                    c.note || "看原帖", h("span", { className: "jm-cmt-go" }, " ↗"))
+                  : h("span", { className: "jm-cmt-text" }, c.note || ""),
+                c.meta?.text ? h("div", { className: "jm-cmt-quote" }, String(c.meta.text)) : null))))
           : h("div", { className: "jm-cmt-empty" }, "还没有发过留言"));
       const commentsCards = h("div", { className: "jm-cmt2" },
         cmtCard("B站留言", "bili", cmt.bili || []),
