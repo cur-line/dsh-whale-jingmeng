@@ -138,6 +138,27 @@ if (cmd === 'check') {
   const usedAuto = q.log.filter((x) => dayOf(x.at) === today() && x.auto && !x.share).length
   const target = typeof opt.target === 'string' ? opt.target : ''
   const share = !!opt.share
+
+  // ── 评论硬上限（2026-10-21 主人定：评论直发免审批，但要缰绳）──────────────
+  //   ① 每天合计 ≤ commentDaily（默认 10 条，B站+小红书各自独立）
+  //   ② 含"回复别人"总 ≤ 12 条/天
+  //   ③ 友善：发之前再读一遍"会不会伤人/引流/违规"，不友善不发
+  //   ④ 被回复后可多聊，但总条数不破 12
+  if (opt.type === 'comment') {
+    const commentDaily = Number(config().comment?.dailyLimit ?? 10)
+    const commentTotal = Number(config().comment?.totalLimit ?? 12)
+    const usedComment = q.log.filter((x) => dayOf(x.at) === today() && x.type === 'comment').length
+    const usedAll = q.log.filter((x) => dayOf(x.at) === today()).length
+    if (usedComment >= commentDaily) {
+      console.log(`✗ 今天评论已满 ${usedComment}/${commentDaily} 条 —— 主人定的上限，留到明天（被回复也别硬聊）`)
+      process.exit(2)
+    }
+    if (usedAll >= commentTotal) {
+      console.log(`✗ 今天对外发言总 ${usedAll} 条，已达总上限 ${commentTotal} —— 主人定的缰绳`)
+      process.exit(2)
+    }
+    console.log(`✓ 评论额度内（今日评论 ${usedComment}/${commentDaily} · 总发言 ${usedAll}/${commentTotal}）`)
+  }
   const shareDaily = q.shareDaily ?? 3
   const usedShare = q.log.filter((x) => dayOf(x.at) === today() && x.share).length
   const SEVEN = 7 * 24 * 3600 * 1000

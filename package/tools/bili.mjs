@@ -40,6 +40,8 @@ const map = {
   //   为什么做成代理而不是复制一份：xhs 自己有一套命令表，
   //   两处维护必然漂移；这里只做入口统一，`node bili.mjs xhs feed` 等价于 `node xhs.mjs feed`。
   xhs: ['xhs.mjs', '小红书：feed / read / like / fav / comment / note / diary / me / doctor / login'],
+  inspiration: ['commands/inspiration.mjs', '每日灵感文稿（14:00 前）：collect 收集收藏+事件整理 3-5 个点子 / list / show'],
+  douyin: ['douyin.mjs', '抖音（只读接入）：fetch 拉热点榜 / status 看上次'],
   // —— 写（会真的发出去；都必须显式 --dry 或 --go） ——
   'dm-await': ['commands/dm-await.mjs', '私信监听（只认主人；命中打印 DM_HIT）'],
   fav: ['commands/fav.mjs', '收藏（我想留着）：判据强制 · --list / --check / <BV> --reason … --dry|--go'],

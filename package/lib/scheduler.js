@@ -175,7 +175,7 @@ function wakePrompt(st, identity, biliMjs) {
       try { x = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.dsh', 'bili-whale.config.json'), 'utf8')).xhs ?? {} } catch {}
       const like = Number(x.likeDaily ?? 5)
       const fav = Number(x.collectDaily ?? 3)
-      const cmt = Number(x.commentDaily ?? 1)
+      const cmt = Number(x.commentDaily ?? 10)
       const note = Number(x.shareDaily ?? 1)
       return [
         '',
@@ -610,7 +610,30 @@ export function startScheduler(ctx, opts) {
   startup(dmTick, 25_000)
   const timer3 = setInterval(() => { liveTick().catch(() => {}) }, 60_000)
   startup(liveTick, 20_000)
-  log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看都挂上了 ✓`)
+
+  // ── 每日灵感文稿（2026-10-21 主人定：每天 14:00 前整理一篇给他）────────
+  // 触发时刻：每天 13:30（预留 30 分钟容错，保证 14:00 前到）。
+  // 幂等：当天已生成（~/.dsh/creations/<日期>-灵感.md 存在）就跳过，不重复推。
+  const INSPIRE_HOUR = 13, INSPIRE_MIN = 30
+  let inspireFiredAt = ''   // 记录"哪一天已触发过"，跨天自动重来
+  async function inspireTick() {
+    const d = new Date()
+    const key = d.toLocaleDateString('sv-SE')
+    const m = d.getHours() * 60 + d.getMinutes()
+    if (inspireFiredAt === key) return            // 今天已跑过
+    if (m < INSPIRE_HOUR * 60 + INSPIRE_MIN) return   // 还没到点
+    const creationsDir = path.join(dshHome, 'creations')
+    const todayFile = path.join(creationsDir, `${key}-灵感.md`)
+    if (fs.existsSync(todayFile)) { inspireFiredAt = key; return }   // 已生成过
+    log(`[bili-whale] 每日灵感：到点，生成今日文稿（${key}）`)
+    const r = await runBili(['inspiration', 'collect', '--push'])
+    if (r.ok) log(`[bili-whale] 每日灵感：已生成并推送 ✓`)
+    else log(`[bili-whale] 每日灵感失败：${(r.err || r.out).slice(0, 160)}`)
+    inspireFiredAt = key   // 无论成败今天不再重试（明天自然重来）
+  }
+  const timerInspire = setInterval(() => { inspireTick().catch(() => {}) }, TICK_MS)
+  startup(inspireTick, 10_000)
+  log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看 + 每日灵感都挂上了 ✓`)
 
   return {
     /** 设置页一保存就调它：清掉旧计划，下一次 tick 按新配置重算 ✓ */
@@ -630,9 +653,10 @@ export function startScheduler(ctx, opts) {
       // ⭐ 直播间是**单独开关**：保存设置就立刻生效（点开就跑 ✓ 关掉就停 ✓），不等下一轮定时器
       liveTick().catch(() => {})
     },
-    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timerDm); clearInterval(timer3); startupTimers.forEach(clearTimeout); liveStopping = true; try { liveProc?.kill() } catch {} },
+    stop() { clearInterval(timer); clearInterval(timer2); clearInterval(timerDm); clearInterval(timer3); clearInterval(timerInspire); startupTimers.forEach(clearTimeout); liveStopping = true; try { liveProc?.kill() } catch {} },
     tick,
     listenTick,
     liveTick,
+    inspireTick,
   }
 }

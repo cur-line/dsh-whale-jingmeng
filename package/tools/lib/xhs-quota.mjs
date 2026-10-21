@@ -24,7 +24,7 @@ const KEEP_DAYS = 30
 const ACTIONS = {
   like: { key: 'likeDaily', label: '点赞', fallback: 5 },
   fav: { key: 'collectDaily', label: '收藏', fallback: 3 },
-  comment: { key: 'commentDaily', label: '评论', fallback: 1 },
+  comment: { key: 'commentDaily', label: '评论', fallback: 10 },
   note: { key: 'shareDaily', label: '发布笔记', fallback: 1 },
 }
 

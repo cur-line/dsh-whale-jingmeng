@@ -273,6 +273,32 @@ const snapshot = {
     statusCount,
   },
 
+  // ── 潜水箱（2026-10-21 加，主人点名要的展示）────────────────────────
+  // 收藏夹里带理由的东西 = 她想留着反复看的宝贝。之前 collect 读了 favs 却从不输出 ✗
+  treasure: Array.isArray(favs?.items)
+    ? favs.items.map((f) => ({
+        bv: f.bv ?? null,
+        aid: f.aid ?? null,
+        title: f.title ?? '',
+        up: f.up ?? '',
+        reason: f.reason ?? '',
+        kind: f.kind ?? '其他',
+        at: f.at ?? '',
+        url: f.bv ? `https://www.bilibili.com/video/${f.bv}` : null,
+      }))
+    : [],
+
+  // ── 评论双卡片（2026-10-21 加）：B站留言 / 小红书留言 ────────────────
+  // 从事件流里挑"真发出去"的评论（comment-post / share-comment / xhs-comment），
+  // 给面板「最近干了什么」做两张独立卡片，让主人一眼看到具体说了什么。
+  comments: (() => {
+    const pick = (pred) => events.filter(pred).slice(0, 10)
+    return {
+      bili: pick((e) => e.kind === 'comment-post' || e.kind === 'share-comment'),
+      xhs: pick((e) => e.kind === 'xhs-comment'),
+    }
+  })(),
+
   stats: {
     totalEvents: events.length,
     todayEvents: todayEvents.length,

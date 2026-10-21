@@ -250,6 +250,15 @@ console.log(`  code=${out.code} message=${out.message ?? ''}`)
 if (out.code === 0) {
   const rpid = out.data?.rpid_str ?? out.data?.rpid
   console.log(`  ✅ 已发布，评论 rpid=${rpid}`)
+  // 事件日志（2026-10-21 加）：「最近干了什么」面板要能看到 B站评论
+  try {
+    const { logEvent } = await import('../lib/event-log.mjs')
+    logEvent(SHARE ? 'share-comment' : 'comment-post', {
+      target: bvid || `oid:${oid}`,
+      note: `${SHARE ? '分享型·@主人' : '留言'}：${message.replace(/\s+/g, ' ').slice(0, 50)}`,
+      meta: { rpid: String(rpid), reply: !!(parent && root), share: !!SHARE, video: bvid || null },
+    })
+  } catch { /* 日志失败不影响评论 */ }
   // once-per-person：记一笔"回过谁"，下次判重用
   if (ONCE && parent && root) {
     try {

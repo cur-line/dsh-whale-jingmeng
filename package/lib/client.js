@@ -203,6 +203,8 @@ window.__ModuleLoader__.load({
       ".jm-ev-dot.tone-warn{background:var(--dsw-alias-state-warn-primary)}",
       ".jm-ev-dot.tone-bad{background:var(--dsw-alias-state-error-primary)}",
       ".jm-ev-dot.tone-xhs{background:#ff2e4d}",
+      ".jm-ev-dot.tone-comment{background:var(--dsw-alias-state-success-primary)}",
+      ".jm-ev-dot.tone-share{background:#e879a6}",
       ".jm-ev-time{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;font-variant-numeric:tabular-nums}",
       ".jm-ev-kind{font-size:11px;font-weight:600;flex:0 0 auto;min-width:56px;color:var(--dsw-alias-label-secondary)}",
       ".jm-ev-kind.tone-ok{color:var(--dsw-alias-state-success-primary)}",
@@ -211,6 +213,8 @@ window.__ModuleLoader__.load({
       ".jm-ev-kind.tone-warn{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-ev-kind.tone-bad{color:var(--dsw-alias-state-error-primary)}",
       ".jm-ev-kind.tone-xhs{color:#ff2e4d}",
+      ".jm-ev-kind.tone-comment{color:var(--dsw-alias-state-success-primary)}",
+      ".jm-ev-kind.tone-share{color:#e879a6}",
       ".jm-ev-text{flex:1;min-width:140px;color:var(--dsw-alias-label-secondary)}",
       ".jm-tag{font-family:ui-monospace,monospace;font-size:10px;color:var(--dsw-alias-label-tertiary);background:rgba(127,127,127,.11);padding:1px 5px;border-radius:3px;flex:0 0 auto}",
       ".jm-empty{padding:30px 16px;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:12.5px}",
@@ -228,6 +232,30 @@ window.__ModuleLoader__.load({
       ".jm-plat-row code{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--dsw-alias-label-secondary)}",
       ".jm-plat-row b{font-weight:650}",
       ".jm-plat-row b.on{color:var(--dsw-alias-state-success-primary)}",
+
+      /* 评论双卡片（2026-10-21 加）：B站留言 / 小红书留言 */
+      ".jm-cmt2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}",
+      "@container (max-width:700px){.jm-cmt2{grid-template-columns:1fr}}",
+      ".jm-cmt{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;padding:10px 12px;min-height:88px}",
+      ".jm-cmt-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12px;font-weight:650;color:var(--dsw-alias-label-primary)}",
+      ".jm-cmt-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}",
+      ".jm-cmt-badge.bili{background:rgba(251,114,153,.16);color:#fb7299}",
+      ".jm-cmt-badge.xhs{background:rgba(255,46,77,.14);color:#ff2e4d}",
+      ".jm-cmt-n{font-size:11px;color:var(--dsw-alias-label-tertiary);margin-left:auto;font-variant-numeric:tabular-nums}",
+      ".jm-cmt-list{display:flex;flex-direction:column;gap:5px;max-height:130px;overflow-y:auto}",
+      ".jm-cmt-item{display:flex;gap:6px;align-items:flex-start;font-size:11.5px;line-height:1.6;color:var(--dsw-alias-label-secondary)}",
+      ".jm-cmt-t{font-family:ui-monospace,monospace;font-size:10px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;padding-top:1px}",
+      ".jm-cmt-empty{padding:14px 0;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11.5px}",
+
+      /* 潜水箱（2026-10-21 加）：收藏带理由 = 她的宝贝 */
+      ".jm-treasure{display:flex;flex-direction:column;gap:7px;margin-top:12px}",
+      ".jm-tres-item{display:flex;flex-direction:column;gap:4px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:8px 11px}",
+      ".jm-tres-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}",
+      ".jm-tres-kind{font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;background:rgba(63,199,245,.15);color:var(--dsw-alias-brand-primary)}",
+      ".jm-tres-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);text-decoration:none}",
+      ".jm-tres-title:hover{text-decoration:underline}",
+      ".jm-tres-up{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-tres-reason{font-size:11.5px;color:var(--dsw-alias-label-secondary);line-height:1.6}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -860,12 +888,14 @@ window.__ModuleLoader__.load({
         "diary-reject": "驳回", "diary-publish": "发布", "create-brief": "创作",
         "create-outline": "分镜", "risk": "风控", "error": "错误",
         "dynamic": "动态", "notify": "通知",
+        "comment-post": "B站留言", "share-comment": "分享·@你", "xhs-comment": "小红书留言",
+        "inspiration": "灵感",
         "xhs-feed": "小红书选题", "xhs-read": "小红书读懂", "xhs-interact": "小红书互动",
         "xhs-note": "小红书笔记", "xhs-diary": "小红书日记",
       };
       const KIND_TONE = {
         night: "idle", feed: "ok", debrief: "brand", interact: "pink",
-        diary: "warn", risk: "bad", error: "bad", xhs: "xhs",
+        diary: "warn", risk: "bad", error: "bad", xhs: "xhs", comment: "ok", share: "pink",
       };
       const groupOf = (k) => {
         if (/^xhs/.test(k)) return "xhs";
@@ -874,6 +904,7 @@ window.__ModuleLoader__.load({
         if (k === "debrief") return "debrief";
         if (/^interact|^dynamic|^notify/.test(k)) return "interact";
         if (/^diary|^create/.test(k)) return "diary";
+        if (/^comment|^share/.test(k)) return "comment";
         if (/^risk|^error/.test(k)) return "risk";
         return "other";
       };
@@ -996,6 +1027,8 @@ window.__ModuleLoader__.load({
         cards,
         thoughtsCard,
         quickActions,
+        commentsCards,
+        treasureCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
             h("div", { className: "jm-panel-h" },
@@ -1026,6 +1059,43 @@ window.__ModuleLoader__.load({
                 h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),
                 h("div", { className: "jm-plat-row" }, h("span", null, "选题"), h("b", null, `${plat.xhs?.feedCount ?? 0} 轮`)),
                 h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
+
+      // ── 评论双卡片（2026-10-21 加）：B站留言 / 小红书留言 ─────────────
+      // 老板要求：评论直接发，不用审批，但要在「最近干了什么」里写清楚。
+      // 两张独立卡片，分别列 B站留言（comment-post / share-comment）和小红书留言（xhs-comment）。
+      const cmt = d.comments || {};
+      const fmtCmtTime = (at) => {
+        const t = new Date(at);
+        if (!Number.isFinite(t.getTime())) return "";
+        return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+      };
+      const cmtCard = (title, badgeCls, items) => h("div", { className: "jm-cmt" },
+        h("div", { className: "jm-cmt-h" },
+          h("span", { className: `jm-cmt-badge ${badgeCls}` }, title),
+          h("span", { className: "jm-cmt-n" }, `${items.length} 条`)),
+        items.length
+          ? h("div", { className: "jm-cmt-list" },
+            items.map((c, i) => h("div", { key: i, className: "jm-cmt-item" },
+              h("span", { className: "jm-cmt-t" }, fmtCmtTime(c.at)),
+              h("span", null, c.note || ""))))
+          : h("div", { className: "jm-cmt-empty" }, "还没有发过留言"));
+      const commentsCards = h("div", { className: "jm-cmt2" },
+        cmtCard("B站留言", "bili", cmt.bili || []),
+        cmtCard("小红书留言", "xhs", cmt.xhs || []));
+
+      // ── 潜水箱（2026-10-21 加）：收藏带理由 = 她的宝贝 ────────────────
+      const treasure = d.treasure || [];
+      const treasureCard = treasure.length
+        ? h("div", { className: "jm-treasure" },
+          treasure.map((t, i) => h("div", { key: i, className: "jm-tres-item" },
+            h("div", { className: "jm-tres-top" },
+              h("span", { className: "jm-tres-kind" }, t.kind || "其他"),
+              t.url
+                ? h("a", { className: "jm-tres-title", href: t.url, target: "_blank", rel: "noreferrer" }, t.title || t.bv)
+                : h("span", { className: "jm-tres-title" }, t.title || t.bv),
+              t.up ? h("span", { className: "jm-tres-up" }, t.up) : null),
+            h("div", { className: "jm-tres-reason" }, t.reason || ""))))
+        : h("div", { className: "jm-empty" }, "潜水箱还空着。她收藏带理由的东西会出现在这里。");
 
       const timelineView = h("div", { className: "jm-panel jm-fill" },
         h("div", { className: "jm-panel-h" },
