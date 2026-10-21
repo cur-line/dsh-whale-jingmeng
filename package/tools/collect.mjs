@@ -444,27 +444,31 @@ function writeSnapshot(snap) {
 }
 
 // --stdout：只把 JSON 打到 stdout，不写文件（给插件路由调用）
+// ⚠️ 2026-10-21 修的两个真 bug（老板截图 HTTP 500）：
+//    ① process.stdout.write 在管道（execFile）下是**异步**的，紧接着 process.exit(0)
+//       会丢掉没 flush 的尾部数据 → JSON 被截断（实测丢约 11%）。
+//    ② exit 放在异步回调里 → 后面的同步代码**还会继续跑**，又打一遍 JSON/日志。
+//    两个一起修：放在 if 分支 + write 回调里 exit ✓
 if (argv.includes('--stdout')) {
-  process.stdout.write(json)
-  process.exit(0)
-}
-
-const watchSec = Number(opt('watch', 0))
-if (argv.includes('--watch') || watchSec > 0) {
-  const every = Math.max(5, watchSec || 30) * 1000
-  const write = () => {
-    try {
-      writeSnapshot(buildSnapshot())
-      console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] 已刷新 ${OUT}`)
-    } catch (e) {
-      console.error('刷新失败：' + e.message)
-    }
-  }
-  write()
-  setInterval(write, every)
-} else if (OUT) {
-  writeSnapshot(snapshot)
-  console.log(`已写入 ${OUT}（${Buffer.byteLength(json)} bytes · ${snapshot.stats.totalEvents} 条事件）`)
+  process.stdout.write(json + '\n', 'utf8', () => process.exit(0))
 } else {
-  console.log(json)
+  const watchSec = Number(opt('watch', 0))
+  if (argv.includes('--watch') || watchSec > 0) {
+    const every = Math.max(5, watchSec || 30) * 1000
+    const write = () => {
+      try {
+        writeSnapshot(buildSnapshot())
+        console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] 已刷新 ${OUT}`)
+      } catch (e) {
+        console.error('刷新失败：' + e.message)
+      }
+    }
+    write()
+    setInterval(write, every)
+  } else if (OUT) {
+    writeSnapshot(snapshot)
+    console.log(`已写入 ${OUT}（${Buffer.byteLength(json)} bytes · ${snapshot.stats.totalEvents} 条事件）`)
+  } else {
+    console.log(json)
+  }
 }
