@@ -267,6 +267,21 @@ window.__ModuleLoader__.load({
       ".jm-grow-v{font-variant-numeric:tabular-nums}",
       ".jm-grow-v.warn{color:#e0564f}",
       ".jm-grow-n{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      /* 视频建议（2026-10-21 加）：给老板的每日推荐 + 已看标记 */
+      ".jm-video{display:flex;flex-direction:column;gap:8px;margin-top:12px}",
+      ".jm-video-item{display:flex;flex-direction:column;gap:5px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:9px 11px}",
+      ".jm-video-item.seen{opacity:.62}",
+      ".jm-video-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}",
+      ".jm-video-date{font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;background:rgba(251,114,153,.15);color:#fb7299}",
+      ".jm-video-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);text-decoration:none;line-height:1.5}",
+      ".jm-video-title:hover{text-decoration:underline}",
+      ".jm-video-why{font-size:11px;color:var(--dsw-alias-label-secondary);line-height:1.65}",
+      ".jm-video-act{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:1.6}",
+      ".jm-video-btns{display:flex;align-items:center;gap:7px;margin-top:2px}",
+      ".jm-vbtn{font-size:10.5px;font-weight:650;padding:3px 10px;border-radius:999px;border:0;cursor:pointer;background:rgba(63,199,245,.16);color:var(--dsw-alias-brand-primary);transition:opacity .15s}",
+      ".jm-vbtn:hover{opacity:.75}",
+      ".jm-vbtn.done{background:rgba(63,185,80,.16);color:var(--dsw-alias-state-success-primary);cursor:default}",
+      ".jm-video-empty{padding:14px 0;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:11.5px}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -1002,7 +1017,9 @@ window.__ModuleLoader__.load({
           h("span", { className: "jm-ev-time" }, hh),
           h("span", { className: `jm-ev-kind tone-${KIND_TONE[g] || "idle"}` }, KIND_LABEL[e.kind] || e.kind),
           h("span", { className: "jm-ev-text" }, e.note || ""),
-          e.target ? h("code", { className: "jm-tag" }, String(e.target).slice(0, 22)) : null,
+          e.target ? (e.kind === "interact" && String(e.target).startsWith("BV")
+            ? h("a", { className: "jm-tag", href: `https://www.bilibili.com/video/${e.target}`, target: "_blank", rel: "noreferrer" }, `去B站看 ${String(e.target).slice(0, 14)}`)
+            : h("code", { className: "jm-tag" }, String(e.target).slice(0, 22))) : null,
           !isToday ? h("code", { className: "jm-tag" }, dd) : null);
       };
 
@@ -1107,6 +1124,42 @@ window.__ModuleLoader__.load({
             h("div", { className: "jm-tres-reason" }, t.reason || ""))))
         : h("div", { className: "jm-empty" }, "潜水箱还空着。她收藏带理由的东西会出现在这里。");
 
+      // ── 给你的视频建议（2026-10-21 加）─────────────────────────────
+      // 老板要看推荐了哪些视频 + 能标记「已看」。状态写回 video-suggestions.json（API），
+      // 30s 自动刷新后保持。
+      const vids = d.videoSuggestions || [];
+      const markVideo = (url, seen) => {
+        fetch(`${API}/video/${seen ? "seen" : "unseen"}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url }),
+        }).then((r) => r.json()).then((j) => { if (j.ok) load(); }).catch(() => {});
+      };
+      const videoCard = h("div", { className: "jm-panel" },
+        h("div", { className: "jm-panel-h" },
+          h("span", null, "给你的视频建议"),
+          vids.some((v) => v.seen) ? h("span", { className: "jm-meta" }, `已看 ${vids.filter((v) => v.seen).length}/${vids.length}`) : null),
+        vids.length
+          ? h("div", { className: "jm-video" },
+            vids.map((v, i) => h("div", { key: i, className: `jm-video-item${v.seen ? " seen" : ""}` },
+              h("div", { className: "jm-video-top" },
+                h("span", { className: "jm-video-date" }, v.at || ""),
+                v.url
+                  ? h("a", { className: "jm-video-title", href: v.url, target: "_blank", rel: "noreferrer" }, v.title || v.url)
+                  : h("span", { className: "jm-video-title" }, v.title || "")),
+              v.why ? h("div", { className: "jm-video-why" }, v.why) : null,
+              v.action ? h("div", { className: "jm-video-act" }, v.action) : null,
+              h("div", { className: "jm-video-btns" },
+                v.seen
+                  ? h("button", { className: "jm-vbtn done", title: "点一下取消已看" }, "✓ 已看")
+                  : h("button", {
+                    className: "jm-vbtn",
+                    title: "标记为已看",
+                    onClick: () => markVideo(v.url, true),
+                  }, "标记已看")))))
+          : h("div", { className: "jm-video-empty" }, "还没有视频建议。她推荐后会出现在这里。"));
+      // 「已看」按钮点过 → 变灰并显示 ✓（默认不动，30s 刷新后从后端读回）
+
       const homeView = h("div", { className: "jm-stack" },
         moodCard,
         cards,
@@ -1115,6 +1168,7 @@ window.__ModuleLoader__.load({
         commentsCards,
         treasureCard,
         growCard,
+        videoCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
             h("div", { className: "jm-panel-h" },

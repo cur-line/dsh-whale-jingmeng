@@ -26,7 +26,8 @@ function opt(name, def = null) {
 }
 
 const here = path.dirname(new URL(import.meta.url).pathname)
-const OUT = opt('out', path.join(here, '..', 'dashboard', 'data.json'))
+// 独立面板已删除（并入 DSH 养鱼页），默认输出改到 ~/.dsh 下，供手动/定时落盘用
+const OUT = opt('out', path.join(process.env.HOME || os.homedir(), '.dsh', 'whale-dashboard.json'))
 
 function readJson(p, fallback) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return fallback }
@@ -112,6 +113,25 @@ for (const line of diaryText.split('\n')) {
 
 // ── 4. 事件流 ────────────────────────────────────────────────────
 const events = readEvents(800)
+
+// BV→标题 映射表：给事件流里的 interact（点赞/收藏）补上视频标题。
+// B站写动作的事件 note 只记动作名（like/fav），不记标题；
+// 这里从「看过」表格 + 事件里的 debrief/feed 里找 BV 对应的标题，
+// 让面板能显示「点赞《xxx》」而不是干巴巴的「like BV1Yk...」。
+const bvTitle = new Map()
+for (const w of watched) if (w.bv && w.title) bvTitle.set(w.bv, w.title)
+for (const e of events) {
+  if (e.target && e.note && !bvTitle.has(e.target)) bvTitle.set(e.target, String(e.note).slice(0, 60))
+}
+// 补 note：interact 类事件，若 note 只是动作名则补上「《标题》」
+const enrichedEvents = events.map((e) => {
+  if (e.kind === 'interact' && e.target && bvTitle.has(e.target)) {
+    const act = { like: '点赞', fav: '收藏', coin: '投币', share: '转发', status: '查状态' }[e.meta?.action] || e.meta?.action || e.note
+    if (e.undo) return { ...e, note: `${act}（撤销）《${bvTitle.get(e.target)}》` }
+    return { ...e, note: `${act}《${bvTitle.get(e.target)}》` }
+  }
+  return e
+})
 
 // ── 5. 账号与额度 ────────────────────────────────────────────────
 const cred = readJson(path.join(BILI, 'credentials.json'), null)
@@ -295,7 +315,7 @@ const snapshot = {
   // 从事件流里挑"真发出去"的评论（comment-post / share-comment / xhs-comment），
   // 给面板「最近干了什么」做两张独立卡片，让主人一眼看到具体说了什么。
   comments: (() => {
-    const pick = (pred) => events.filter(pred).slice(0, 10)
+    const pick = (pred) => enrichedEvents.filter(pred).slice(0, 10)
     return {
       bili: pick((e) => e.kind === 'comment-post' || e.kind === 'share-comment'),
       xhs: pick((e) => e.kind === 'xhs-comment'),
@@ -378,7 +398,7 @@ const snapshot = {
 
   trend,
 
-  events: events.slice(0, 300),
+  events: enrichedEvents.slice(0, 300),
 }
 
 return snapshot
@@ -387,63 +407,16 @@ return snapshot
 const snapshot = buildSnapshot()
 const json = JSON.stringify(snapshot, null, 2)
 
-// ── 生成单文件 HTML（数据内联）──────────────────────────────────
-// 为什么要有这个：直接双击 index.html 是 file:// 协议，
-// 浏览器禁止 fetch 本地 JSON（CORS）。所以把数据塞进 HTML 里，
-// 双击就能看，不用起服务器。
-function buildStandalone(snap) {
-  const tpl = path.join(here, '..', 'dashboard', 'index.html')
-  let html
-  try { html = fs.readFileSync(tpl, 'utf8') } catch { return null }
-
-  const payload = JSON.stringify(snap)
-    .replace(/</g, '\\u003c')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029')
-
-  // 注入到 window.__DASHBOARD_DATA__，并把 boot() 改成优先读它
-  html = html.replace(
-    '<script>\nconst KIND_GROUP',
-    `<script>\nwindow.__DASHBOARD_DATA__ = ${payload};\n</script>\n<script>\nconst KIND_GROUP`
-  )
-
-  // 把 boot() 改成：有内联数据就直接用，没有再 fetch
-  html = html.replace(
-    `async function boot() {
-  const bootEl = document.getElementById('boot');
-  try {
-    const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    render(d);
-  } catch (e) {`,
-    `async function boot() {
-  const bootEl = document.getElementById('boot');
-  // 优先用内联数据（单文件双击打开时走这条）
-  if (window.__DASHBOARD_DATA__) { render(window.__DASHBOARD_DATA__); return; }
-  try {
-    const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    render(d);
-  } catch (e) {`
-  )
-
-  return html
-}
-
+// ── 写数据文件 ──────────────────────────────────────────────────
+// 面板不再有独立 HTML（已并入 DSH 养鱼页），这里只负责写 JSON。
+// DSH 页面通过插件路由调 --stdout 实时取数，本函数供手动/定时落盘用。
 function writeSnapshot(snap) {
   fs.mkdirSync(path.dirname(OUT), { recursive: true })
   fs.writeFileSync(OUT, JSON.stringify(snap, null, 2), 'utf8')
-  const standalone = buildStandalone(snap)
-  if (!standalone) return null
-  const single = path.join(path.dirname(OUT), '鲸檬面板.html')
-  fs.writeFileSync(single, standalone, 'utf8')
-  fs.chmodSync(single, 0o644)
-  return single
+  return OUT
 }
 
-// --stdout：只把 JSON 打到 stdout，不写文件、不生成单文件版（给插件路由调用）
+// --stdout：只把 JSON 打到 stdout，不写文件（给插件路由调用）
 if (argv.includes('--stdout')) {
   process.stdout.write(json)
   process.exit(0)
@@ -463,10 +436,8 @@ if (argv.includes('--watch') || watchSec > 0) {
   write()
   setInterval(write, every)
 } else if (OUT) {
-  const single = writeSnapshot(snapshot)
+  writeSnapshot(snapshot)
   console.log(`已写入 ${OUT}（${Buffer.byteLength(json)} bytes · ${snapshot.stats.totalEvents} 条事件）`)
-
-  if (single) console.log(`已生成单文件版 ${single}（双击即可打开）`)
 } else {
   console.log(json)
 }

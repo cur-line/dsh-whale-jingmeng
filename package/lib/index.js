@@ -207,6 +207,47 @@ function isLoopbackReq(req) {
       json(res, 200, { ok: true, config: next, warn: next.quota.shareDaily > 3 ? '分享条数 >3：看起来会像刷量，平台可能限流/封号' : null })
     })
 
+    // ── 视频建议「已看/已阅」（2026-10-21 加）────────────────────────
+    // 老板要求：推荐视频后要能标记「已看」，面板上按钮变灰。
+    // 写回 ~/.dsh/video-suggestions.json 的 items[].seen，持久化、重启不丢。
+    route('exact', '/dsh-bili/api/video/seen', async (req, res) => {
+      if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
+      if (req.method !== 'POST') { json(res, 405, { ok: false }); return }
+      const b = JSON.parse(await readBody(req) || '{}')
+      const url = String(b.url ?? '').trim()
+      if (!url) { json(res, 400, { ok: false, error: 'url 必填' }); return }
+      const file = path.join(DSH_HOME, 'video-suggestions.json')
+      let data = { items: [] }
+      try { data = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+      const items = Array.isArray(data.items) ? data.items : []
+      let found = false
+      for (const it of items) {
+        if (String(it.url ?? '') === url) { it.seen = true; it.seenAt = new Date().toISOString(); found = true }
+      }
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ items }, null, 2) + '\n')
+      json(res, 200, { ok: true, found })
+    })
+
+    // ── 视频建议「取消已看」──────────────────────────────────────────
+    route('exact', '/dsh-bili/api/video/unseen', async (req, res) => {
+      if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
+      if (req.method !== 'POST') { json(res, 405, { ok: false }); return }
+      const b = JSON.parse(await readBody(req) || '{}')
+      const url = String(b.url ?? '').trim()
+      if (!url) { json(res, 400, { ok: false, error: 'url 必填' }); return }
+      const file = path.join(DSH_HOME, 'video-suggestions.json')
+      let data = { items: [] }
+      try { data = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+      const items = Array.isArray(data.items) ? data.items : []
+      for (const it of items) {
+        if (String(it.url ?? '') === url) { delete it.seen; delete it.seenAt }
+      }
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ items }, null, 2) + '\n')
+      json(res, 200, { ok: true })
+    })
+
     // 写凭据（只写不读回）
     route('exact', '/dsh-bili/api/cookie', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
@@ -625,26 +666,6 @@ function isLoopbackReq(req) {
         json(res, 400, { ok: false, error: `未知操作：${action}` })
       } catch (e) {
         json(res, 500, { ok: false, error: String(e?.message ?? e) })
-      }
-    })
-
-    // 面板页面本体（和设置页一样，是单文件静态页）
-    route('exact', '/dsh-bili/dashboard', async (req, res) => {
-      try {
-        const tools = resolveBiliMjs()
-        const page = path.join(path.dirname(tools), '..', 'dashboard', 'index.html')
-        if (!fs.existsSync(page)) {
-          res.statusCode = 404
-          res.setHeader('content-type', 'text/plain; charset=utf-8')
-          res.end('dashboard/index.html 不存在')
-          return
-        }
-        res.statusCode = 200
-        res.setHeader('content-type', 'text/html; charset=utf-8')
-        res.end(fs.readFileSync(page))
-      } catch (e) {
-        res.statusCode = 500
-        res.end(String(e?.message ?? e))
       }
     })
 

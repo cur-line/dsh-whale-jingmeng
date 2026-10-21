@@ -26,7 +26,6 @@
     "README.md",
     "examples",
     "persona",
-    "dashboard/index.html",
     "tests"
   ],
   "dsh": {

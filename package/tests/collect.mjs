@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regression: dashboard watch must re-read source files and refresh both exports.
+// Regression: collect watch must re-read source files and refresh the JSON snapshot.
 // Every source and output lives under a disposable, credential-free HOME.
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
@@ -12,19 +12,12 @@ import { setTimeout as delay } from 'node:timers/promises'
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'jingmeng-collect-test-'))
 const state = path.join(root, '.dsh')
 const config = path.join(state, 'bili-whale.config.json')
-const output = path.join(root, 'dashboard', 'data.json')
-const standalone = path.join(root, 'dashboard', '鲸檬面板.html')
+const output = path.join(root, 'whale-dashboard.json')
 const collector = fileURLToPath(new URL('../tools/collect.mjs', import.meta.url))
 let child
 let exited = false
 let childError
 let log = ''
-
-function inlineSnapshot(html) {
-  const match = html.match(/window\.__DASHBOARD_DATA__ = (.+?);\n<\/script>/)
-  assert.ok(match, 'standalone HTML must include the collected snapshot')
-  return JSON.parse(match[1])
-}
 
 async function waitForSnapshot(name, previousTimestamp) {
   const deadline = Date.now() + 12_000
@@ -33,18 +26,14 @@ async function waitForSnapshot(name, previousTimestamp) {
     if (exited) throw new Error(`collector exited before ${name}: ${log}`)
     try {
       const json = JSON.parse(await fs.readFile(output, 'utf8'))
-      const inline = inlineSnapshot(await fs.readFile(standalone, 'utf8'))
-      if (json.persona.name === name && inline.persona.name === name &&
-          json.generatedAt === inline.generatedAt &&
-          json.generatedAt !== previousTimestamp) return { json, inline }
+      if (json.persona.name === name && json.generatedAt !== previousTimestamp) return json
     } catch (error) {
       // Poll through the initial absence and the short interval between writes.
-      if (error.code !== 'ENOENT' && !(error instanceof SyntaxError) &&
-          !(error instanceof assert.AssertionError)) throw error
+      if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
     }
     await delay(50)
   }
-  throw new Error(`timed out waiting for fresh JSON and HTML (${name}): ${log}`)
+  throw new Error(`timed out waiting for fresh JSON (${name}): ${log}`)
 }
 
 try {
@@ -59,17 +48,30 @@ try {
   child.stdout.on('data', (chunk) => { log += chunk })
   child.stderr.on('data', (chunk) => { log += chunk })
   const first = await waitForSnapshot('fixture-before')
-  assert.equal(first.json.checks.find((check) => check.name === 'B站凭据').ok, false)
+  assert.equal(first.checks.find((check) => check.name === 'B站凭据').ok, false)
   await fs.writeFile(config, JSON.stringify({ persona: { name: 'fixture-after' } }))
   await fs.writeFile(path.join(state, 'whale-log.jsonl'), JSON.stringify({
     at: new Date().toISOString(), kind: 'feed', note: 'isolated fixture event',
   }) + '\n')
-  const second = await waitForSnapshot('fixture-after', first.json.generatedAt)
-  assert.equal(first.json.stats.totalEvents, 0)
-  assert.equal(second.json.stats.totalEvents, 1)
-  assert.equal(second.inline.stats.totalEvents, 1)
-  assert.equal(second.json.checks.find((check) => check.name === 'B站凭据').ok, false)
-  console.log('PASS collect: watch refreshes JSON, HTML, timestamps, and events in isolated HOME')
+  const second = await waitForSnapshot('fixture-after', first.generatedAt)
+  assert.equal(first.stats.totalEvents, 0)
+  assert.equal(second.stats.totalEvents, 1)
+  assert.equal(second.checks.find((check) => check.name === 'B站凭据').ok, false)
+
+  // 点赞标题补全：interact 事件 note 应带《标题》（从「看过」表格映射）
+  const diary = [
+    '| 日期 | BV | 标题 | 想法 |',
+    '| 2026-10-21 | BV1TEST00001 | 测试视频标题 | 不错 |',
+  ].join('\n')
+  await fs.writeFile(path.join(state, 'whale-diary.md'), diary + '\n')
+  await fs.writeFile(path.join(state, 'whale-log.jsonl'),
+    JSON.stringify({ at: new Date().toISOString(), kind: 'interact', note: 'like', target: 'BV1TEST00001', meta: { action: 'like' } }) + '\n')
+  const third = await waitForSnapshot('fixture-after', second.generatedAt)
+  const like = third.events.find((e) => e.kind === 'interact' && e.target === 'BV1TEST00001')
+  assert.ok(like, 'interact event must exist')
+  assert.match(like.note, /点赞《测试视频标题》/, `note should carry title, got: ${like.note}`)
+
+  console.log('PASS collect: watch refreshes JSON, timestamps, events, and like-title enrichment in isolated HOME')
 } finally {
   if (child && !exited) {
     child.kill('SIGTERM')
