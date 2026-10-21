@@ -310,6 +310,56 @@ window.__ModuleLoader__.load({
       ".jm-vp-kind{font-size:10.5px;color:var(--dsw-alias-label-tertiary);padding:8px 0 6px}",
       ".jm-vp-prompt{margin:0;font-family:inherit;font-size:11.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--dsw-alias-label-secondary);max-height:260px;overflow-y:auto}",
       ".jm-vp-btns{display:flex;gap:7px;padding-top:9px}",
+      /* 待审提醒条（2026-10-21 加）*/
+      /* ══ 五类审批卡：每类一套视觉（2026-10-21 老板要求）══ */
+      /* 视频 */
+      ".jm-card-video{border-radius:12px;overflow:hidden;background:#000;margin:2px 0 4px;border:.5px solid var(--dsw-alias-border-l2)}",
+      ".jm-cv-head{display:flex;align-items:baseline;gap:10px;padding:9px 13px;background:rgba(255,255,255,.04)}",
+      ".jm-cv-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".jm-cv-spec{font-size:10.5px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;font-variant-numeric:tabular-nums}",
+      ".jm-cv-player{display:block;width:100%;max-height:420px;background:#000;aspect-ratio:16/9}",
+      ".jm-cv-foot{padding:7px 13px;background:rgba(255,255,255,.03)}",
+      /* 回复：对话气泡 */
+      ".jm-card-reply{padding:12px 14px;border-radius:12px;background:rgba(127,127,127,.055);border:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-cr-line{display:flex;align-items:center;gap:8px;margin-bottom:6px}",
+      ".jm-cr-tag{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(127,127,127,.16);color:var(--dsw-alias-label-secondary)}",
+      ".jm-cr-tag-me{background:rgba(63,199,245,.18);color:var(--dsw-alias-brand-primary)}",
+      ".jm-cr-who{font-size:11.5px;font-weight:650;color:var(--dsw-alias-label-primary)}",
+      ".jm-cr-said{font-size:12px;line-height:1.75;color:var(--dsw-alias-label-secondary);padding:8px 11px;margin-bottom:10px;border-radius:9px;background:rgba(127,127,127,.09);border-left:2px solid var(--dsw-alias-border-l2)}",
+      ".jm-cr-mine{margin-top:2px}",
+      ".jm-cr-answer{font-size:13px;line-height:1.85;color:var(--dsw-alias-label-primary);padding:10px 12px;border-radius:9px;background:rgba(63,199,245,.10);border-left:2px solid var(--dsw-alias-brand-primary);white-space:pre-wrap}",
+      /* B站动态 */
+      ".jm-card-dynamic{padding:13px 15px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-cd-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}",
+      ".jm-cd-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#2b6fb5,#6fc7f0);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}",
+      ".jm-cd-name{font-size:12.5px;font-weight:700;color:var(--dsw-alias-label-primary)}",
+      ".jm-cd-time{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-cd-body{font-size:13px;line-height:1.9;color:var(--dsw-alias-label-primary);white-space:pre-wrap}",
+      /* 小红书图文 */
+      ".jm-card-note{padding:13px 15px;border-radius:12px;background:rgba(255,63,86,.055);border:.5px solid rgba(255,63,86,.22)}",
+      ".jm-cn-title{font-size:13.5px;font-weight:750;color:var(--dsw-alias-label-primary);margin-bottom:8px;line-height:1.5}",
+      ".jm-cn-body{font-size:12.5px;line-height:1.85;color:var(--dsw-alias-label-secondary);white-space:pre-wrap}",
+      ".jm-cn-imgs{margin-top:10px}",
+      ".jm-cn-imgs-n{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-cn-imgs-list{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}",
+      ".jm-cn-thumb{width:76px;height:76px;object-fit:cover;border-radius:8px;border:.5px solid rgba(255,63,86,.2);background:#111}",
+      ".jm-appr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}",
+      ".jm-appr-tab{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-secondary);font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}",
+      ".jm-appr-tab:hover{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}",
+      ".jm-appr-tab.on{background:var(--dsw-alias-brand-primary);border-color:transparent;color:#fff}",
+      ".jm-appr-tab.dim{opacity:.44}",
+      ".jm-appr-tab-n{font-size:10px;font-weight:700;padding:1px 5px;border-radius:999px;background:rgba(127,127,127,.2)}",
+      ".jm-appr-tab.on .jm-appr-tab-n{background:rgba(255,255,255,.26)}",
+      ".jm-appr-group{display:flex;align-items:baseline;gap:9px;margin:16px 0 8px;padding-bottom:6px;border-bottom:.5px solid var(--dsw-alias-border-l1)}",
+      ".jm-appr-group:first-child{margin-top:0}",
+      ".jm-appr-group>span:first-child{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.02em}",
+      ".jm-appr-group-n{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-pending-bar{display:flex;align-items:center;gap:11px;padding:13px 18px;border-radius:12px;cursor:pointer;background:linear-gradient(100deg,rgba(227,179,65,.14),rgba(63,199,245,.10));border:.5px solid rgba(227,179,65,.42);transition:border-color .15s}",
+      ".jm-pending-bar:hover{border-color:rgba(227,179,65,.75)}",
+      ".jm-pb-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary);box-shadow:0 0 12px var(--dsw-alias-state-warn-primary);flex:0 0 auto}",
+      ".jm-pb-text{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary);flex:0 0 auto}",
+      ".jm-pb-parts{font-size:11.5px;color:var(--dsw-alias-label-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".jm-pb-go{font-size:11.5px;font-weight:650;color:var(--dsw-alias-brand-primary);flex:0 0 auto}",
       /* 审批卡里的引用/视频（2026-10-21 加）*/
       ".jm-appr-quote{margin:6px 0 8px;padding:8px 11px;border-left:2px solid var(--dsw-alias-border-l2);background:rgba(127,127,127,.06);border-radius:0 6px 6px 0;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary)}",
       /* 待审视频预览（2026-10-21 加）*/
@@ -1285,16 +1335,34 @@ window.__ModuleLoader__.load({
           h("div", { className: "jm-diary-b" }, latest.text)) : null;
       })();
 
+      // 待审提醒条（2026-10-21）：控制台第一眼看到"有几件事等你点头"
+      const pendingBar = (() => {
+        const q = d.approvals || d.pendingSummary || null;
+        const n = q?.pending ?? 0;
+        if (!n) return null;
+        const parts = [];
+        if (q.biliReply) parts.push(`B站回复 ${q.biliReply}`);
+        if (q.xhsComment) parts.push(`小红书评论 ${q.xhsComment}`);
+        if (q.biliDynamic) parts.push(`B站动态 ${q.biliDynamic}`);
+        if (q.xhsNote) parts.push(`小红书图文 ${q.xhsNote}`);
+        if (q.biliVideo) parts.push(`视频 ${q.biliVideo}`);
+        return h("div", { className: "jm-pending-bar", onClick: () => { try { window.dispatchEvent(new CustomEvent("dsh-jingmeng-approval")) } catch {} } },
+          h("span", { className: "jm-pb-dot" }),
+          h("span", { className: "jm-pb-text" }, `${n} 件事等你点头`),
+          parts.length ? h("span", { className: "jm-pb-parts" }, parts.join(" · ")) : null,
+          h("span", { className: "jm-pb-go" }, "去审批 →"));
+      })();
+
+      // ── 控制台重排（2026-10-21 老板要求：重新优化）──────────────────
+      // 逻辑：① 先看"有事要做"（待审）→ ② 她现在什么状态 → ③ 她今天产出了什么
+      //       → ④ 她看过/收藏了什么 → ⑤ 系统健康。
       const homeView = h("div", { className: "jm-stack" },
+        // ① 待审提醒条（最上面：有事要做）
+        pendingBar,
+        // ② 她现在什么状态
         moodCard,
         cards,
-        thoughtsCard,
-        quickActions,
-        commentsCards,
-        treasureCard,
-        growCard,
-        videoCard,
-        promptCard,
+        // ③ 她今天产出了什么
         diaryHomeCard,
         h("div", { className: "jm-split" },
           h("div", { className: "jm-panel" },
@@ -1330,7 +1398,16 @@ window.__ModuleLoader__.load({
                   h("button", { className: "jm-plat-btn", title: "去小红书 App：我的 → 编辑资料 → 职业 → 选「AI创作者」/「AI虚拟人」；亮完回来点这里",
                     onClick: () => saveXhsIdentity(!(plat.xhs?.aiIdentity ?? false)) },
                     plat.xhs?.aiIdentity ? "取消" : "已亮")),
-                h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))));
+                h("div", { className: "jm-plat-row" }, h("span", null, "命令"), h("code", null, "bili.mjs xhs …")))))),
+        // ④ 她看过 / 收藏了什么
+        videoCard,
+        promptCard,
+        treasureCard,
+        commentsCards,
+        thoughtsCard,
+        // ⑤ 系统：养号进度 + 快速操作
+        growCard,
+        quickActions);
 
 
       const timelineView = h("div", { className: "jm-panel jm-fill" },
@@ -1450,6 +1527,7 @@ window.__ModuleLoader__.load({
       const [err, setErr] = useState("");
       const [editing, setEditing] = useState(null);   // { id, text }
       const [rejecting, setRejecting] = useState(null); // { id, reason }
+      const [filter, setFilter] = useState("all");      // 审批分类筛选（2026-10-21）
 
       const [loading, setLoading] = useState(true);
       const actionLock = useRef(false);
@@ -1499,6 +1577,39 @@ window.__ModuleLoader__.load({
 
       const pendingCount = items.filter((x) => x.status === "pending").length;
 
+      // 类型筛选 tab（2026-10-21 老板：审批里要分类）
+      const FILTERS = (() => {
+        const cnt = (k) => items.filter((x) => x.kind === k && x.status === "pending").length;
+        const defs = [
+          ["all", "全部", items.filter((x) => x.status === "pending").length],
+          ["video", "视频", cnt("bili-video") + cnt("xhs-video")],
+          ["reply", "回复/评论", cnt("bili-reply") + cnt("xhs-comment")],
+          ["dynamic", "B站动态", cnt("bili-dynamic")],
+          ["note", "小红书图文", cnt("xhs-note")],
+          ["diary", "日志", cnt("diary") + cnt("xhs-diary")],
+        ];
+        return defs;
+      })();
+      const matchFilter = (it) => {
+        if (filter === "all") return true;
+        if (filter === "video") return it.kind === "bili-video" || it.kind === "xhs-video";
+        if (filter === "reply") return it.kind === "bili-reply" || it.kind === "xhs-comment";
+        if (filter === "dynamic") return it.kind === "bili-dynamic";
+        if (filter === "note") return it.kind === "xhs-note";
+        if (filter === "diary") return it.kind === "diary" || it.kind === "xhs-diary";
+        return true;
+      };
+
+      // 2026-10-21：排序 —— 待审优先，同状态按类型聚在一起（视频/动态/图文/回复/日记）
+      const KIND_ORDER = ['bili-video','xhs-video','bili-dynamic','xhs-note','bili-reply','xhs-comment','diary','xhs-diary'];
+      const sortedItems = items.slice().sort((a, b) => {
+        const sa = a.status === 'pending' ? 0 : 1;
+        const sb = b.status === 'pending' ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+        const ka = KIND_ORDER.indexOf(a.kind), kb = KIND_ORDER.indexOf(b.kind);
+        return (ka < 0 ? 99 : ka) - (kb < 0 ? 99 : kb);
+      });
+
       return h("div", { className: "jm-approval" },
         h("div", { className: "jm-appr-head" },
           h("div", null,
@@ -1507,6 +1618,14 @@ window.__ModuleLoader__.load({
               loading ? "读取中…" : err ? "读取失败，请重试" : pendingCount ? `${pendingCount} 条等你点头` : "暂时没有要审的")),
           h("button", { className: "jm-link", onClick: load, disabled: loading || !!busy }, "刷新")),
 
+        // 分类筛选（2026-10-21 老板：审批里要分类，不然看着难受）
+        items.length ? h("div", { className: "jm-appr-tabs" },
+          FILTERS.map(([k, label, n]) => h("button", {
+            key: k,
+            className: `jm-appr-tab${filter === k ? " on" : ""}${n === 0 && k !== "all" ? " dim" : ""}`,
+            onClick: () => setFilter(k),
+          }, label, n > 0 ? h("span", { className: "jm-appr-tab-n" }, n) : null))) : null,
+
         err ? h("div", { className: "jm-err" }, err) : null,
         msg ? h("div", { className: "jm-ok-msg" }, msg) : null,
 
@@ -1514,34 +1633,89 @@ window.__ModuleLoader__.load({
           ? h("div", { className: "jm-empty jm-empty-lg" },
             "没有待审的东西。她写完日记、或准备好一条内容，会出现在这里。")
           : h("div", { className: "jm-appr-list" },
-            items.map((it) => {
+            sortedItems.filter(matchFilter).map((it, idx) => {
+              const vis = sortedItems.filter(matchFilter);
+              const prev = vis[idx - 1];
+              const groupHead = (!prev || prev.kind !== it.kind)
+                ? h("div", { className: "jm-appr-group" },
+                    h("span", null, it.kindLabel || it.kind),
+                    h("span", { className: "jm-appr-group-n" },
+                      `${sortedItems.filter(x => x.kind === it.kind && x.status === 'pending').length} 待审`))
+                : null;
               const st = STATUS[it.status] || { label: it.status, cls: "" };
               const isEditing = editing && editing.key === itemKey(it);
               const isRejecting = rejecting && rejecting.key === itemKey(it);
-              return h("div", { key: itemKey(it), className: `jm-appr-item s-${it.status}` },
+              // 五类各用各的版式（2026-10-21 老板：不能只换两个字，其他都一样）
+              const isVideo = it.kind === "bili-video" || it.kind === "xhs-video";
+              const isReply = it.kind === "bili-reply" || it.kind === "xhs-comment";
+              const isDynamic = it.kind === "bili-dynamic";
+              const isNote = it.kind === "xhs-note";
+              const isDiary = it.kind === "diary" || it.kind === "xhs-diary";
+              const card = h("div", { className: `jm-appr-item s-${it.status}` },
                 h("div", { className: "jm-appr-item-h" },
                   h("span", { className: `jm-st2 ${st.cls}` }, st.label),
                   h("span", { className: "jm-appr-kind" }, it.kindLabel || "潜水日志"),
                   h("span", { className: "jm-meta" },
-                    it.kind === "bili-video" || it.kind === "xhs-video"
-                      ? `${it.aspect || ""} · ${it.duration || "?"} 秒 · ${it.sizeMB || "?"} MB · ${it.date}`
+                    isVideo ? `${it.aspect || ""} · ${it.duration || "?"} 秒 · ${it.sizeMB || "?"} MB`
+                      : isReply ? `${it.chars} 字回复`
                       : `${it.chars} 字 · ${it.date}`),
                   it.platform ? h("span", { className: "jm-plat-mini" }, it.platform) : null),
 
-                it.title && !isEditing ? h("div", { className: "jm-appr-kind" }, it.title) : null,
+                // ══ 视频：直接内嵌播放器（老板：要么给链接，要么直接放上来）══
+                isVideo ? h("div", { className: "jm-card-video" },
+                  h("div", { className: "jm-cv-head" },
+                    h("span", { className: "jm-cv-title" }, it.title || "未命名视频"),
+                    h("span", { className: "jm-cv-spec" },
+                      `${it.aspect || ""} · ${it.duration || "?"}s · ${it.sizeMB || "?"}MB`)),
+                  h("video", {
+                    className: "jm-cv-player",
+                    src: `${API}/video-file/${encodeURIComponent(it.id)}`,
+                    poster: it.cover ? `${API}/video-cover/${encodeURIComponent(it.id)}` : undefined,
+                    controls: true, preload: "metadata", playsInline: true,
+                  }),
+                  h("div", { className: "jm-cv-foot" },
+                    h("span", { className: "jm-meta" }, "↑ 点播放直接看，审完再点下面的「发」"))) : null,
 
-                // 回复类：显示回给谁 + 他说了什么
-                it.who ? h("div", { className: "jm-meta" }, `回给：${it.who}`) : null,
-                it.src ? h("div", { className: "jm-appr-quote" }, `他说：${String(it.src).slice(0, 100)}`) : null,
+                // ══ B站 / 小红书回复：对话回复样式 ══
+                isReply ? h("div", { className: "jm-card-reply" },
+                  h("div", { className: "jm-cr-line" },
+                    h("span", { className: "jm-cr-tag" }, "他"),
+                    h("span", { className: "jm-cr-who" }, it.who || "对方")),
+                  it.src ? h("div", { className: "jm-cr-said" }, String(it.src).slice(0, 140)) : null,
+                  h("div", { className: "jm-cr-line jm-cr-mine" },
+                    h("span", { className: "jm-cr-tag jm-cr-tag-me" }, "我"),
+                    h("span", { className: "jm-cr-who" }, "鲸檬回")),
+                  h("div", { className: "jm-cr-answer" }, it.text)) : null,
 
-                // 视频：封面 + 文件
-                (it.kind === "bili-video" || it.kind === "xhs-video") ? h("div", { className: "jm-vp-video" },
-                  it.cover ? h("img", { className: "jm-vp-cover", src: `file://${it.cover}`, alt: "" }) : null,
-                  h("div", { className: "jm-vp-vmeta" },
-                    h("div", null, "已渲染完成，点「发」上传"),
-                    h("div", { className: "jm-meta", style: { wordBreak: "break-all" } }, String(it.file || "")))) : null,
+                // ══ B站动态：像一条动态那样展示 ══
+                isDynamic ? h("div", { className: "jm-card-dynamic" },
+                  h("div", { className: "jm-cd-head" },
+                    h("span", { className: "jm-cd-avatar" }, "鲸"),
+                    h("div", null,
+                      h("div", { className: "jm-cd-name" }, "鲸檬"),
+                      h("div", { className: "jm-cd-time" }, `${it.date} · 待发`))),
+                  h("div", { className: "jm-cd-body" }, it.text)) : null,
 
-                (it.images || []).length ? h("div", { className: "jm-meta" }, `配图 ${it.images.length} 张`) : null,
+                // ══ 小红书图文：红书卡片样式 ══
+                isNote ? h("div", { className: "jm-card-note" },
+                  h("div", { className: "jm-cn-title" }, it.title || ""),
+                  h("div", { className: "jm-cn-body" }, it.text),
+                  (it.images || []).length ? h("div", { className: "jm-cn-imgs" },
+                    h("span", { className: "jm-cn-imgs-n" }, `配图 ${it.images.length} 张`),
+                    h("div", { className: "jm-cn-imgs-list" },
+                      (it.images || []).slice(0, 6).map((src, i) =>
+                        h("img", { key: i, className: "jm-cn-thumb", src, alt: "" })))) : null) : null,
+
+                // ══ 日记（旧的两种）：正文样式 ══
+                (isDiary) ? h("div", null,
+                  it.title ? h("div", { className: "jm-cd-name", style: { marginBottom: "6px" } }, it.title) : null,
+                  isEditing
+                    ? h("textarea", {
+                      className: "jm-appr-edit",
+                      value: editing.text, maxLength: it.maxChars || 500,
+                      onChange: (e) => setEditing({ ...editing, text: e.target.value }),
+                    })
+                    : h("div", { className: "jm-appr-body" }, it.text)) : null,
                 isEditing && it.kind === "xhs-diary" ? h("input", { className: "jm-input", value: editing.title || "", placeholder: "笔记标题", maxLength: 20, onChange: (e) => setEditing({ ...editing, title: e.target.value }) }) : null,
                 isEditing
                   ? h("textarea", {
@@ -1601,6 +1775,7 @@ window.__ModuleLoader__.load({
                   it.status === "published" && it.url
                     ? h("a", { className: "jm-link", href: it.url, target: "_blank", rel: "noreferrer" }, "看已发布的 →")
                     : null));
+              return h("div", { key: itemKey(it) }, groupHead, card);
             })));
     }
 
@@ -1630,6 +1805,13 @@ window.__ModuleLoader__.load({
       useStyleOnce();
       const [tab, setTab] = useState("console");
       const [pending, setPending] = useState(0);
+
+      // 控制台点「去审批 →」时切过来（2026-10-21）
+      useEffect(() => {
+        const go = () => setTab("approval");
+        window.addEventListener("dsh-jingmeng-approval", go);
+        return () => window.removeEventListener("dsh-jingmeng-approval", go);
+      }, []);
 
       // 侧栏图标上显示待审数量，一眼能看到"有事要做"
       useEffect(() => {

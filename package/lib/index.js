@@ -332,6 +332,75 @@ function isLoopbackReq(req) {
       fs.writeFileSync(file, JSON.stringify({ items }, null, 2) + '\n')
     }
     const stripPlatform = (items) => items.map(({ platform, ...rest }) => rest)
+    // ── 视频播放 / 封面（2026-10-21 老板要求：视频要能直接在面板里看）──────
+    // 只允许播「待审视频队列里登记过的文件」，防止借这个接口读任意路径 ✓
+    route('prefix', '/dsh-bili/api/video-file/', async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') { json(res, 405, { ok: false }); return }
+      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-file/'.length))
+      let item = null
+      try {
+        const q = JSON.parse(fs.readFileSync(VIDEO_PENDING, 'utf8'))
+        const arr = Array.isArray(q) ? q : (q?.items ?? q?.entries ?? [])
+        item = arr.find((e) => String(e?.id) === id)
+      } catch {}
+      if (!item?.file) { json(res, 404, { ok: false, error: '没找到这个视频' }); return }
+      const real = path.resolve(String(item.file))
+      // 白名单：必须真的在队列里且文件存在，且是视频扩展名
+      if (!/\.(mp4|webm|mov)$/i.test(real)) { json(res, 403, { ok: false, error: '不是视频文件' }); return }
+      let stat
+      try { stat = fs.statSync(real) } catch { json(res, 404, { ok: false, error: '文件不存在' }); return }
+      const total = stat.size
+      const range = String(req.headers.range || '')
+      const type = /\.webm$/i.test(real) ? 'video/webm' : 'video/mp4'
+      if (range) {
+        // 浏览器拖动播放必须要 range 支持
+        const m = /bytes=(\d*)-(\d*)/.exec(range)
+        let start = m && m[1] ? parseInt(m[1], 10) : 0
+        let end = m && m[2] ? parseInt(m[2], 10) : total - 1
+        if (Number.isNaN(start) || start < 0) start = 0
+        if (Number.isNaN(end) || end >= total) end = total - 1
+        if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${total}` }); res.end(); return }
+        res.writeHead(206, {
+          'Content-Type': type,
+          'Content-Length': end - start + 1,
+          'Content-Range': `bytes ${start}-${end}/${total}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'private, max-age=3600',
+        })
+        if (req.method === 'HEAD') { res.end(); return }
+        fs.createReadStream(real, { start, end }).pipe(res)
+        return
+      }
+      res.writeHead(200, {
+        'Content-Type': type,
+        'Content-Length': total,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'private, max-age=3600',
+      })
+      if (req.method === 'HEAD') { res.end(); return }
+      fs.createReadStream(real).pipe(res)
+    })
+
+    // 视频封面（同样只允许队列里登记的封面）
+    route('prefix', '/dsh-bili/api/video-cover/', async (req, res) => {
+      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-cover/'.length))
+      let item = null
+      try {
+        const q = JSON.parse(fs.readFileSync(VIDEO_PENDING, 'utf8'))
+        const arr = Array.isArray(q) ? q : (q?.items ?? q?.entries ?? [])
+        item = arr.find((e) => String(e?.id) === id)
+      } catch {}
+      const cov = item?.cover
+      if (!cov) { json(res, 404, { ok: false }); return }
+      try {
+        const buf = fs.readFileSync(path.resolve(String(cov)))
+        const ext = String(cov).toLowerCase().slice(-4)
+        const ct = ext === 'webp' ? 'image/webp' : (ext === 'png' ? 'image/png' : 'image/jpeg')
+        res.writeHead(200, { 'Content-Type': ct, 'Content-Length': buf.length, 'Cache-Control': 'private, max-age=3600' })
+        res.end(buf)
+      } catch { json(res, 404, { ok: false, error: '封面不存在' }) }
+    })
+
     route('exact', '/dsh-bili/api/pending', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
       // 四类合在一起给面板：B站回复(bili) · 小红书评论(xhs) · B站动态(bili-dynamic) · 小红书图文(xhs-note)

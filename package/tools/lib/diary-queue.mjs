@@ -7,7 +7,9 @@ export function readEntries(file, array = false) {
   let value
   try { value = JSON.parse(fs.readFileSync(file, 'utf8')) }
   catch (error) { if (error.code === 'ENOENT') return []; throw new Error(`队列无法读取，已保留原文件：${path.basename(file)}（${error.message}）`) }
-  const entries = array ? value : value?.entries
+  // 2026-10-21：新队列（回复/动态/图文/视频）用 { items: [] }，旧日记队列用 { entries: [] }
+  // 两种都认，否则读新队列会抛错 → /approvals 直接 500 → 审批界面打不开 ✗
+  const entries = array ? value : (value?.entries ?? value?.items)
   if (!Array.isArray(entries)) throw new Error(`队列格式错误，已保留原文件：${path.basename(file)}`)
   return entries
 }
@@ -20,7 +22,9 @@ export function writeEntries(file, entries, array = false) {
     let previous = {}
     try { previous = JSON.parse(fs.readFileSync(file, 'utf8')) }
     catch (error) { if (error.code !== 'ENOENT') throw error }
-    value = { ...previous, entries }
+    // 保持原文件的键名（新队列用 items，旧日记用 entries），别把结构改掉 ✓
+    const key = Array.isArray(previous?.items) && !previous?.entries ? 'items' : 'entries'
+    value = { ...previous, [key]: entries }
   }
   try {
     fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })

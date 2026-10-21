@@ -358,6 +358,26 @@ const snapshot = {
       }))
   })(),
 
+  // ── 待审汇总（2026-10-21 加）：控制台第一眼看到"几件事等你点头" ─────────
+  approvals: (() => {
+    const readN = (file, array = false) => {
+      try {
+        const v = JSON.parse(fs.readFileSync(file, 'utf8'))
+        const arr = array ? v : (v?.entries ?? v?.items)
+        return Array.isArray(arr) ? arr.filter((e) => (e?.status || 'pending') === 'pending').length : 0
+      } catch { return 0 }
+    }
+    const biliReply = readN(path.join(os.homedir(), '.bili-ai', 'pending-replies.json'))
+    const xhsComment = readN(path.join(DSH, 'xhs', 'pending-comments.json'))
+    const biliDynamic = readN(path.join(DSH, 'bili-whale-dynamic-queue.json'))
+    const xhsNote = readN(path.join(DSH, 'xhs', 'pending-notes.json'))
+    const biliVideo = readN(path.join(DSH, 'bili-whale-video-queue.json'))
+    const diary = readN(path.join(DSH, 'jingmeng-diary-queue.json'))
+    const xhsDiary = readN(path.join(DSH, 'xhs', 'pending.json'), true)
+    return { biliReply, xhsComment, biliDynamic, xhsNote, biliVideo, diary, xhsDiary,
+      pending: biliReply + xhsComment + biliDynamic + xhsNote + biliVideo + diary + xhsDiary }
+  })(),
+
   // ── 给你的视频建议（2026-10-21 加，老板点名要）───────────────────────
   // 鲸檬每天整理"适合技术型老板"的视频：视频 + 为什么适合 + 建议行动 + 提示词方向。
   // 文件由会话（鲸檬自己）写入 ~/.dsh/video-suggestions.json，面板只读展示。
