@@ -584,9 +584,17 @@ function isLoopbackReq(req) {
     // ── 审批（2026-10-20）──────────────────────────────────────────
     // 她的产出（日记 / 小红书笔记）先落队列，**必须经主人点头才发**。
     // 队列文件与命令行 daily-diary.mjs 共用同一份，两边操作互不打架。
+    // 2026-10-21 老板要求：**所有要发出去的东西都在这里审**（不再分两套）。
+    // 五类外发 + 两本旧日记，全部并进「审批」tab。
     const approvalQueues = [
       { kind: 'diary', kindLabel: 'B站潜水日志', platform: 'B站', file: path.join(DSH_HOME, 'jingmeng-diary-queue.json'), maxChars: 500, array: false },
       { kind: 'xhs-diary', kindLabel: '小红书日志', platform: '小红书', file: path.join(DSH_HOME, 'xhs', 'pending.json'), maxChars: 1000, array: true },
+      // ── 五类外发（2026-10-21 起统一到审批 tab）──
+      { kind: 'bili-reply', kindLabel: 'B站回复', platform: 'B站', file: path.join(HOME, '.bili-ai', 'pending-replies.json'), maxChars: 500, array: false, reply: true },
+      { kind: 'xhs-comment', kindLabel: '小红书评论', platform: '小红书', file: path.join(DSH_HOME, 'xhs', 'pending-comments.json'), maxChars: 300, array: false, reply: true },
+      { kind: 'bili-dynamic', kindLabel: 'B站动态', platform: 'B站', file: path.join(HOME, '.dsh', 'bili-whale-dynamic-queue.json'), maxChars: 1000, array: false },
+      { kind: 'xhs-note', kindLabel: '小红书图文', platform: '小红书', file: path.join(HOME, '.dsh', 'xhs', 'pending-notes.json'), maxChars: 1000, array: false },
+      { kind: 'bili-video', kindLabel: 'B站视频', platform: 'B站', file: path.join(HOME, '.dsh', 'bili-whale-video-queue.json'), maxChars: 2000, array: false, video: true },
     ]
     const publishingQueues = new Set()
     const rewriteJobs = new Map()
@@ -671,12 +679,33 @@ function isLoopbackReq(req) {
       const items = []
       for (const queue of approvalQueues) for (const e of readEntries(queue.file, queue.array)) {
         if (!e?.id) continue
-        const text = String(queue.array ? e.content ?? '' : e.text ?? '')
-        items.push({ id: e.id, kind: queue.kind, kindLabel: queue.kindLabel, platform: queue.platform,
-          date: e.date || String(e.createdAt || '').slice(0, 10), title: queue.array ? e.title || '' : '',
-          text, chars: text.length, maxChars: queue.maxChars, images: queue.array ? e.images || [] : [],
-          status: e.status || 'pending', reason: e.reason || null, createdAt: e.createdAt,
-          url: queue.array ? (e.noteId ? `https://www.xiaohongshu.com/explore/${e.noteId}` : null) : (e.dynId ? `https://t.bilibili.com/${e.dynId}` : null) })
+        // 各队列字段不同：回复类用 message/who/src，动态用 text，图文用 title/content，视频用 file/cover
+        const isReply = !!queue.reply
+        const isVideo = !!queue.video
+        const text = String(
+          isReply ? (e.message ?? '')
+          : isVideo ? (e.note ?? e.title ?? '')
+          : queue.array ? (e.content ?? '')
+          : (e.text ?? e.content ?? '')
+        )
+        items.push({
+          id: e.id, kind: queue.kind, kindLabel: queue.kindLabel, platform: queue.platform,
+          date: e.date || String(e.at || e.createdAt || '').slice(0, 10),
+          title: e.title || '',
+          text, chars: text.length, maxChars: queue.maxChars,
+          images: Array.isArray(e.images) ? e.images : [],
+          // 回复类额外字段：回给谁、他说了什么
+          who: e.who || e.author || null, src: e.src || null,
+          // 视频字段
+          file: isVideo ? (e.file ?? null) : null,
+          cover: isVideo ? (e.cover ?? null) : null,
+          aspect: isVideo ? (e.aspect ?? null) : null,
+          duration: isVideo ? (e.duration ?? null) : null,
+          sizeMB: isVideo ? (e.sizeMB ?? null) : null,
+          status: e.status || 'pending', reason: e.reason || null,
+          createdAt: e.at || e.createdAt,
+          url: e.noteId ? `https://www.xiaohongshu.com/explore/${e.noteId}` : (e.dynId ? `https://t.bilibili.com/${e.dynId}` : null),
+        })
       }
       const rank = { pending: 0, approved: 1, rejected: 2, published: 3 }
       items.sort((a,b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
@@ -736,12 +765,49 @@ function isLoopbackReq(req) {
         publishingQueues.add(target.file)
         ownsPublishing = true
         const toolDir = path.dirname(resolveBiliMjs())
-        const args = target.array ? [path.join(toolDir, 'xhs.mjs'), 'diary', 'publish', target.item.id]
-          : [path.join(toolDir, 'bili.mjs'), 'daily-diary', 'publish', target.item.id]
+        const it = target.item
+        // 2026-10-21：五类外发按 kind 分发到各自命令（都带 --approved 走代码硬闸）
+        // 旧的两本日记保持原路径不变。
+        let args
+        if (target.reply && target.kind === 'bili-reply') {
+          args = [path.join(toolDir, 'bili.mjs'), 'comment',
+            '--oid', String(it.oid), '--root', String(it.root), '--parent', String(it.parent),
+            '--message', String(it.message), '--auto', '--approved', String(it.id), '--go']
+          if (it.bvid) args.push('--bvid', String(it.bvid))
+        } else if (target.reply && target.kind === 'xhs-comment') {
+          args = [path.join(toolDir, 'xhs.mjs'), 'comment', String(it.feedId), '--token', String(it.token),
+            '--text', String(it.text), '--approved', String(it.id), '--go']
+        } else if (target.kind === 'bili-dynamic') {
+          args = [path.join(toolDir, 'bili.mjs'), 'dynamic', 'post', '--text', String(it.text),
+            '--approved', String(it.id), '--go', '--auto']
+        } else if (target.kind === 'xhs-note') {
+          args = [path.join(toolDir, 'xhs.mjs'), 'note', '--title', String(it.title),
+            '--content', String(it.content), '--images', (it.images || []).join(','),
+            '--approved', String(it.id), '--go']
+        } else if (target.kind === 'bili-video') {
+          // 视频上传：目前先标记为已发（上传接口后续接），文件路径已存
+          args = null
+        } else {
+          args = target.array ? [path.join(toolDir, 'xhs.mjs'), 'diary', 'publish', target.item.id]
+            : [path.join(toolDir, 'bili.mjs'), 'daily-diary', 'publish', target.item.id]
+        }
+        if (!args) {
+          // 视频：暂无上传接口 → 明确告知，不假装成功
+          json(res, 501, { ok: false, error: '视频上传接口还没接。文件已就绪，可手动上传：' + String(it.file || '') })
+          return
+        }
         const result = await new Promise(resolve => execFile(NODE_EXE, args, { timeout: target.array ? 360000 : 180000, windowsHide: true }, (error, stdout, stderr) => resolve({ error, stdout: String(stdout || ''), stderr: String(stderr || '') })))
         const entry = readEntries(target.file, target.array).find(e => e.id === target.item.id)
-        const remoteId = target.array ? entry?.noteId : entry?.dynId
-        if (result.error || entry?.status !== 'published' || !remoteId) throw new Error((result.stderr || result.error?.message || '发布未确认成功，稿件仍保留，请先核实结果').slice(-500))
+        const isLegacy = !target.reply && !['bili-dynamic','xhs-note','bili-video'].includes(target.kind)
+        if (isLegacy) {
+          const remoteId = target.array ? entry?.noteId : entry?.dynId
+          if (result.error || entry?.status !== 'published' || !remoteId) throw new Error((result.stderr || result.error?.message || '发布未确认成功，稿件仍保留，请先核实结果').slice(-500))
+        } else {
+          // 五类外发：命令自己带硬闸，成功就出队；失败保留草稿
+          if (result.error) throw new Error((result.stderr || result.error?.message || '发送失败，草稿保留').slice(-500))
+          const left = readEntries(target.file, target.array).filter(e => String(e.id) !== String(target.item.id))
+          writeEntries(target.file, left, target.array)
+        }
         json(res, 200, { ok: true, detail: '已发布，队列状态已确认', url: target.array ? `https://www.xiaohongshu.com/explore/${remoteId}` : `https://t.bilibili.com/${remoteId}` })
       } catch (error) { approvalError(res, error) } finally { if (ownsPublishing) publishingQueues.delete(target.file) }
     })

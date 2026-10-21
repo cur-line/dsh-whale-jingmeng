@@ -310,6 +310,8 @@ window.__ModuleLoader__.load({
       ".jm-vp-kind{font-size:10.5px;color:var(--dsw-alias-label-tertiary);padding:8px 0 6px}",
       ".jm-vp-prompt{margin:0;font-family:inherit;font-size:11.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--dsw-alias-label-secondary);max-height:260px;overflow-y:auto}",
       ".jm-vp-btns{display:flex;gap:7px;padding-top:9px}",
+      /* 审批卡里的引用/视频（2026-10-21 加）*/
+      ".jm-appr-quote{margin:6px 0 8px;padding:8px 11px;border-left:2px solid var(--dsw-alias-border-l2);background:rgba(127,127,127,.06);border-radius:0 6px 6px 0;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary)}",
       /* 待审视频预览（2026-10-21 加）*/
       ".jm-vp-video{display:flex;gap:12px;margin-top:8px;align-items:flex-start}",
       ".jm-vp-cover{width:220px;height:124px;object-fit:cover;border-radius:8px;border:.5px solid var(--dsw-alias-border-l1);flex:0 0 auto;background:#04101f}",
@@ -1520,10 +1522,25 @@ window.__ModuleLoader__.load({
                 h("div", { className: "jm-appr-item-h" },
                   h("span", { className: `jm-st2 ${st.cls}` }, st.label),
                   h("span", { className: "jm-appr-kind" }, it.kindLabel || "潜水日志"),
-                  h("span", { className: "jm-meta" }, `${it.chars} 字 · ${it.date}`),
+                  h("span", { className: "jm-meta" },
+                    it.kind === "bili-video" || it.kind === "xhs-video"
+                      ? `${it.aspect || ""} · ${it.duration || "?"} 秒 · ${it.sizeMB || "?"} MB · ${it.date}`
+                      : `${it.chars} 字 · ${it.date}`),
                   it.platform ? h("span", { className: "jm-plat-mini" }, it.platform) : null),
 
                 it.title && !isEditing ? h("div", { className: "jm-appr-kind" }, it.title) : null,
+
+                // 回复类：显示回给谁 + 他说了什么
+                it.who ? h("div", { className: "jm-meta" }, `回给：${it.who}`) : null,
+                it.src ? h("div", { className: "jm-appr-quote" }, `他说：${String(it.src).slice(0, 100)}`) : null,
+
+                // 视频：封面 + 文件
+                (it.kind === "bili-video" || it.kind === "xhs-video") ? h("div", { className: "jm-vp-video" },
+                  it.cover ? h("img", { className: "jm-vp-cover", src: `file://${it.cover}`, alt: "" }) : null,
+                  h("div", { className: "jm-vp-vmeta" },
+                    h("div", null, "已渲染完成，点「发」上传"),
+                    h("div", { className: "jm-meta", style: { wordBreak: "break-all" } }, String(it.file || "")))) : null,
+
                 (it.images || []).length ? h("div", { className: "jm-meta" }, `配图 ${it.images.length} 张`) : null,
                 isEditing && it.kind === "xhs-diary" ? h("input", { className: "jm-input", value: editing.title || "", placeholder: "笔记标题", maxLength: 20, onChange: (e) => setEditing({ ...editing, title: e.target.value }) }) : null,
                 isEditing
