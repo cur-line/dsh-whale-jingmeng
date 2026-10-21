@@ -302,6 +302,33 @@ const snapshot = {
     }
   })(),
 
+  // ── 她发出去的东西（2026-10-21 加，「干得怎么样」数据源）────────────
+  // 从事件流挑所有"真发出去"的动作：B站日记/动态、小红书笔记。
+  // 互动表现（赞/收藏/评论）由 review.mjs 回读，面板这里先展示"发了什么"。
+  published: (() => {
+    const kinds = {
+      'diary-publish': { platform: 'B站', label: '日记' },
+      dynamic: { platform: 'B站', label: '动态' },
+      'xhs-note': { platform: '小红书', label: '笔记' },
+    }
+    return events
+      .filter((e) => kinds[e.kind])
+      .slice(0, 20)
+      .map((e) => ({
+        at: e.at,
+        kind: e.kind,
+        platform: kinds[e.kind].platform,
+        label: kinds[e.kind].label,
+        target: e.target,
+        note: e.note ?? '',
+      }))
+  })(),
+
+  // ── 给你的视频建议（2026-10-21 加，老板点名要）───────────────────────
+  // 鲸檬每天整理"适合技术型老板"的视频：视频 + 为什么适合 + 建议行动 + 提示词方向。
+  // 文件由会话（鲸檬自己）写入 ~/.dsh/video-suggestions.json，面板只读展示。
+  videoSuggestions: readJson(path.join(DSH, 'video-suggestions.json'), { items: [] }).items ?? [],
+
   stats: {
     totalEvents: events.length,
     todayEvents: todayEvents.length,

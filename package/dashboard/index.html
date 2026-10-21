@@ -185,6 +185,11 @@
   tr:last-child td{border-bottom:none}
   td b{color:var(--fg);font-weight:600}
   .mono{font-family:ui-monospace,monospace;font-size:11.5px}
+  .tag{
+    font-size:11px;font-weight:600;color:var(--accent);
+    background:rgba(63,199,245,.1);border:1px solid rgba(63,199,245,.28);
+    padding:1px 8px;border-radius:999px;white-space:nowrap;
+  }
 
   /* ── 筛选器 ── */
   .filters{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
@@ -443,6 +448,37 @@ function render(d) {
       <ul style="margin:0;padding-left:19px">
         ${d.diary.wants.map(w => `<li style="font-size:13.5px;color:var(--fg2);margin-bottom:9px;line-height:1.75">${esc(w)}</li>`).join('')}
       </ul>
+    </div>
+  </section>` : ''}
+
+  <!-- 她发出去的东西（干得怎么样） -->
+  ${(d.published ?? []).length ? `
+  <section>
+    <h2><span class="bar"></span>她发出去的<span class="cnt">${d.published.length} 条</span></h2>
+    <div class="card" style="padding:6px 17px">
+      ${d.published.map(p => `
+      <div style="display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+        <span class="tag" style="flex:none">${esc(p.platform)}·${esc(p.label)}</span>
+        <span style="font-size:12.5px;color:var(--fg3);flex:none;white-space:nowrap">${esc(String(p.at||'').slice(5,16).replace('T',' '))}</span>
+        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.note || p.target || '')}</span>
+      </div>`).join('')}
+    </div>
+  </section>` : ''}
+
+  <!-- 给你的视频建议 -->
+  ${(d.videoSuggestions ?? []).length ? `
+  <section>
+    <h2><span class="bar"></span>给你的视频建议<span class="cnt">${d.videoSuggestions.length} 条</span></h2>
+    <div class="grid g2">
+      ${d.videoSuggestions.map(v => `
+      <div class="card">
+        <h3>🎬 ${esc(v.title ?? '')}</h3>
+        ${v.url ? `<p class="mono" style="font-size:12px;margin-bottom:8px"><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.url)}</a></p>` : ''}
+        ${v.why ? `<p style="font-size:13px;line-height:1.75;margin-bottom:8px"><b style="color:var(--accent)">为什么适合你：</b>${esc(v.why)}</p>` : ''}
+        ${v.action ? `<p style="font-size:13px;line-height:1.75;margin-bottom:8px"><b style="color:var(--green)">建议行动：</b>${esc(v.action)}</p>` : ''}
+        ${v.prompt ? `<p style="font-size:12.5px;line-height:1.75;color:var(--fg3);border-left:2px solid var(--line);padding-left:10px;margin-top:8px"><b style="color:var(--fg2)">提示方向：</b>${esc(v.prompt)}</p>` : ''}
+        ${v.at ? `<p style="font-size:11.5px;color:var(--fg3);margin-top:8px">${esc(String(v.at).slice(0,10))}</p>` : ''}
+      </div>`).join('')}
     </div>
   </section>` : ''}
 

@@ -15,15 +15,15 @@
 //   node xhs.mjs diary draft              用素材生成一篇草稿（写文件，不发）
 //   node xhs.mjs diary gen-image          为待批稿生成「配图提示词清单」（2026-10-21 加）
 //   node xhs.mjs diary push               发到手机/飞书给人看（可选）
-//   node xhs.mjs diary list               看待批准队列
-//   node xhs.mjs diary approve <id>       批准某篇
-//   node xhs.mjs diary publish <id>       发出去（走 note --go 的同一套闸门）
+//   node xhs.mjs diary list               看待发队列
+//   node xhs.mjs diary approve <id>       批准某篇（2026-10-21 起可选：图文不再强制审批）
+//   node xhs.mjs diary publish <id>       发出去（走 note --go 的同一套闸门 + 人味闸）
 //
 // 配图流程（2026-10-21 加，老板拍板用 Codex 生成）：
 //   draft → gen-image（生成提示词清单到 ~/.dsh/xhs/gen-image-prompts.json）
 //   → Agent 侧用 codex_image_generate 按清单生成图到 ~/.dsh/xhs/images/<id>/
-//   → attach <id> --images …（回填队列，见下）→ approve → publish
-//   node xhs.mjs diary attach <id> --images a.jpg,b.jpg   把生成好的图挂到待批稿
+//   → attach <id> --images …（回填队列，见下）→ publish（图文不再审批）
+//   node xhs.mjs diary attach <id> --images a.jpg,b.jpg   把生成好的图挂到待发稿
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -213,12 +213,25 @@ if (cmd === 'publish') {
   const pending = readEntries(PENDING, true)
   const item = pending.find((p) => String(p.id) === String(id))
   if (!item) { console.error(`队列里没有 ${id}`); process.exit(1) }
-  // 绝不自行越过审批 —— 必须显式 approve 过
-  if (item.status !== 'approved') {
-    console.error(`✗ ${id} 还没批准。先跑：node xhs.mjs diary approve ${id}`)
+  // 2026-10-21 老板拍板：图文笔记不再审批，pending 草稿可直接发布。
+  // 只有视频才需要人制作/审核；文字内容鲸檬自主发。
+  if (item.status === 'published') {
+    console.error(`✗ ${id} 已经发布过了，别重复发。`)
+    process.exit(2)
+  }
+  if (item.status === 'rejected') {
+    console.error(`✗ ${id} 是被驳回的稿子。要用就 revise 生成新稿再发。`)
     process.exit(2)
   }
   validate(item)
+  // 人味闸：像 AI 的稿子不发，逼回去重写
+  try {
+    const { assertHuman } = await import('../lib/humanize-gate.mjs')
+    assertHuman(item.title + '\n' + item.content)
+  } catch (e) {
+    console.error(`✗ 人味检查没通过：${e.message}`)
+    process.exit(2)
+  }
   const q = xhsQuota.check('note')
   if (!q.ok) { console.error(`✗ ${q.reason}`); process.exit(2) }
   const c = clampNote(item.title, item.content)
@@ -232,7 +245,7 @@ if (cmd === 'publish') {
     writeJson(PENDING, pending)
     if (!noteId) { console.error('服务未返回笔记ID，发布结果待核实。稿件保留，请勿重复发布。'); process.exit(1) }
     try { xhsQuota.record('note', c.title) } catch {}
-    try { logEvent('xhs-note', { target: noteId, note: `发布日记「${c.title}」` }) } catch {}
+    try { logEvent('xhs-note', { target: noteId, note: `发布日记「${c.title}」`, meta: { chars: c.content.length } }) } catch {}
   } catch (e) {
     console.error(`✗ 发布失败：${e.message}`)
     if (e.hint?.()) console.error(`→ ${e.hint()}`)
@@ -259,5 +272,5 @@ if (fs.existsSync(DIARY)) {
 }
 const pending = readEntries(PENDING, true)
 const waiting = pending.filter((p) => p.status !== 'published').length
-console.log(`  待批准：${waiting} 篇`)
-console.log('\n可用：material / draft / revise --id <id> --file <JSON稿> / list / approve / publish')
+console.log(`  待发：${waiting} 篇`)
+console.log('\n可用：material / draft / revise --id <id> --file <JSON稿> / list / publish')

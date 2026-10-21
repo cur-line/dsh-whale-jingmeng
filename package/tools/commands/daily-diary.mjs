@@ -3,15 +3,18 @@
 //
 // 老板的要求（2026-10-20 第二次修正）：
 //   「要拟人化一些，有点情绪、个人情绪的那种感觉，跟真人一样」
+// 老板的要求（2026-10-21 第三次修正）：
+//   「日记不用审核了，你自己去发」+「发东西要有人味儿，不能像 AI」
 //
 // 所以这一版不再是「从日记里摘句子拼起来」，而是：
 //   她真的会在醒来那一轮里**自己动笔写**这篇动态。
-//   本脚本只负责三件机械事：取素材、控字数、走审核与发布。
+//   本脚本只负责四件机械事：取素材、控字数、**人味闸**与发布。
 //
-// 分工边界（很重要）：
+// 分工边界（很重要，2026-10-21 起）：
 //   · 情绪与措辞 → 她写（在会话里，带人设）
 //   · 字数与水印 → 脚本卡（不让她超 500 字、不让她把 BV 号带出去）
-//   · 审核与发布 → 脚本做（老板点头才发）
+//   · 人味闸 → 脚本查（像 AI 就拒发，逼她重写，不再给人审）
+//   · 发布 → 脚本直接发（文字内容不再审批；只有视频才要老板做/审）
 //
 // 为什么上一版不行：
 //   用固定模板拼日记原文，读出来像周报 ——「它真做完了一个完整案例这点我给它分」
@@ -25,6 +28,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { logEvent } from '../lib/event-log.mjs'
 import { readEntries, writeEntries, lockQueue, createRevision } from '../lib/diary-queue.mjs'
+import { assertHuman } from '../lib/humanize-gate.mjs'
 
 const HOME = process.env.HOME || os.homedir()
 const STATE_DIR = process.env.DSH_HOME || path.join(HOME, '.dsh')
@@ -225,6 +229,15 @@ if (cmd === 'revise') {
     process.exit(3)
   }
 
+  // 人味闸：像 AI 的稿子当场拦下，不让她发出去丢人
+  try {
+    assertHuman(text)
+  } catch (e) {
+    console.error(`✗ 这稿子不像你写的（人味闸）：\n${e.message}`)
+    console.error('重写一版，用你自己的口气说，别用这些腔调。')
+    process.exit(4)
+  }
+
   const entry = {
     id: `diary-${Date.now()}`,
     date: today(),
@@ -297,9 +310,19 @@ if (cmd === 'revise') {
   console.log(`已驳回：${e.date} · ${why}`)
   try { logEvent('diary-reject', { note: String(why).slice(0, 80) }) } catch {}
 } else if (cmd === 'publish') {
-  const e = selectEntry('approved')
-  if (!e) { console.error('没有找到指定已批准日记。先 approve。'); process.exit(1) }
+  // 2026-10-21 老板拍板：日记不再审批，pending 草稿可直接发布。
+  // 只有视频才需要人制作/审核；文字内容鲸檬自主发。
+  const e = selectEntry('pending')
+  if (!e) { console.error('没有找到待发日记。先 draft 收一篇。'); process.exit(1) }
   if (!String(e.text || '').trim() || e.text.length > MAX_CHARS) { console.error('正文为空或超过500字，不能发布。'); process.exit(2) }
+  // 发布前兜底再查一次人味（draft 收稿时已查过，防中途被改）
+  try {
+    assertHuman(e.text)
+  } catch (err) {
+    console.error(`✗ 人味闸兜底没过：${err.message}`)
+    console.error('这条不能发。让她 revise 重写。')
+    process.exit(4)
+  }
   if (DRY) { console.log('[dry] 将要发布：\n' + e.text); process.exit(0) }
   const r = publishToBilibili(e.text)
   if (r.ok) {
@@ -317,14 +340,11 @@ if (cmd === 'revise') {
 } else {
   console.log(`每日潜水日志（她写，脚本管字数和发布）
 
-  node daily-diary.mjs revise --id <id> --file <稿件>  驳回后创建待审修订版
+  node daily-diary.mjs revise --id <id> --file <稿件>  重写被驳回的稿
   node daily-diary.mjs material               打印今天的素材（给她写作参考）
-  node daily-diary.mjs draft --file <路径>    收下她写的稿，入待审
-  node daily-diary.mjs show                   看待审
-  node daily-diary.mjs push                   推飞书（文档 + 私聊）
-  node daily-diary.mjs approve                批准
-  node daily-diary.mjs reject --why "原因"     驳回
-  node daily-diary.mjs publish [id]           发布指定稿（缺省为最近已批准稿）
+  node daily-diary.mjs draft --file <路径>    收下她写的稿（人味闸当场查）
+  node daily-diary.mjs show                   看待发
+  node daily-diary.mjs publish [id]           直接发布（文字不再审批；人味闸兜底）
 
 字数上限：${MAX_CHARS} 字
 文档：${DOC_URL}`)
