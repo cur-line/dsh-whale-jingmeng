@@ -15,6 +15,7 @@ import os from 'node:os'
 import { publishNote, clampNote, LIMITS, XhsError } from '../lib/xhs-client.mjs'
 import * as xhsQuota from '../lib/xhs-quota.mjs'
 import { logEvent } from '../lib/event-log.mjs'
+import { config } from '../lib/config.mjs'
 
 const HOME = process.env.USERPROFILE || process.env.HOME || os.homedir()
 const argv = process.argv.slice(2)
@@ -76,6 +77,23 @@ if (FROM) {
 
 if (!title.trim()) die('缺标题：--title "…" 或草稿里用 "# 标题" 开头')
 if (!content.trim()) die('缺正文：--content "…" 或草稿里写正文')
+
+// ── 分享定向主号提及（2026-10-21 加，老板定：发笔记/日记时正文开头带 @提及）──
+// 读配置 xhs.mentionOwner：enabled + name 都满足才加；正文里已带过就不重复。
+// 放在 clamp 之前加，让提及一起参与字数统计（也避免 clamp 后截断把提及挤掉）。
+try {
+  const cfg = config()
+  const m = cfg.xhs?.mentionOwner
+  const who = (m?.name ?? '').trim()
+  const at = who && !who.startsWith('@') ? '@' + who : who
+  if (m?.enabled && at && !content.includes(at)) {
+    content = `${at} ${content}`
+    console.log(`[分享定向] ✓ 正文已带 @提及「${at}」（分享给小红书主号）`)
+  }
+} catch (e) {
+  // 配置读不出来就按普通发，不阻塞发布
+  console.error(`⚠️ 读分享定向配置失败，按普通笔记发：${e.message}`)
+}
 
 // ── 长度：先截断并明确告知，不静默丢字 ──
 const clamped = clampNote(title, content)

@@ -48,6 +48,8 @@ export const DEFAULTS = {
     dailyLimit: 2,               // 点赞+收藏+评论 合计每天上限（比 B 站保守：新地方先少动手）
     publishNeedsApproval: true,  // 发笔记必须先给人看 —— 默认死守
     readPerWake: 2,              // 每轮最多深读几条
+    // 分享定向主号（2026-10-21 加）：发笔记/日记时，正文开头自动带 @提及。enabled 关掉就回归普通发布。
+    mentionOwner: { enabled: false, name: '' },
   },
   // 特别关注（2026-10-21 借鉴 yangyu-bot）：名单里的人发新视频 → 鲸檬优先看/互动。
   // users: [{ uid: <B站mid>, name: <昵称> }]；每天最多 dailyMax 条
