@@ -3,3 +3,8 @@ node_modules/
 out/shots/
 out/verify/
 out/*.mp4
+audio/vo-*.aiff
+audio/vo-*.wav
+audio/bgm.wav
+audio/sfx.wav
+audio/mix-raw.wav
