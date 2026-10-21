@@ -43,7 +43,7 @@
     "commentIntervalSec": 300,
     "scope": "both",
     "oncePerPerson": true,
-    "allDay": true,
+    "allDay": false,
     "live": false,
     "liveRoom": "",
     "liveScope": "owner"
@@ -69,5 +69,14 @@
     "args": [
       "C:\\Users\\<本机用户名>\\.dsh\\profiles\\desktop\\node_modules\\dsh-wechat-plugin\\cli.js"
     ]
+  },
+  "xhs": {
+    "enabled": true,
+    "diaryEnabled": true,
+    "shareDaily": 1,
+    "likeDaily": 5,
+    "collectDaily": 3,
+    "commentDaily": 10,
+    "note": "裂纹虎刻"
   }
 }
