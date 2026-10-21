@@ -48,6 +48,10 @@ window.__ModuleLoader__.load({
       ".blw-out{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:17px;color:var(--dsw-alias-label-secondary);background:rgba(127,127,127,.08);border-radius:8px;padding:10px 12px;max-height:240px;overflow:auto;margin-top:10px}",
       ".blw-err{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px;margin-top:8px}",
       ".blw-badge{display:inline-block;font-size:11px;line-height:16px;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.14);color:var(--dsw-alias-label-secondary);margin-left:6px}",
+      /* 待审里的平台标签（2026-10-21 加：B站回复 + 小红书评论同队列）*/
+      ".blw-plat{display:inline-block;font-size:10.5px;line-height:15px;padding:1px 7px;border-radius:999px;margin-left:6px;font-weight:650}",
+      ".blw-plat.bili{background:rgba(251,114,153,.15);color:#fb7299}",
+      ".blw-plat.xhs{background:rgba(255,46,77,.14);color:#ff2e4d}",
       ".blw-cookie{display:flex;flex-direction:column;gap:8px;min-width:250px}",
 
       /* ── 顶部导航 ── */
@@ -737,12 +741,12 @@ window.__ModuleLoader__.load({
       }, []);
       useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load]);
 
-      const act = async (id, what) => {
+      const act = async (id, what, platform = 'bili') => {
         setBusy(id + what); setMsg("");
         try {
           const r = await fetch(`${API}/pending/${what}`, {
             method: "POST", headers: { "content-type": "application/json", accept: "application/json" },
-            body: JSON.stringify({ id }),
+            body: JSON.stringify({ id, platform }),
           });
           const j = await r.json().catch(() => ({}));
           setMsg(j.ok
@@ -754,18 +758,24 @@ window.__ModuleLoader__.load({
 
       return h("div", null,
         h("div", { className: "blw-group" }, "待审核" + (items.length ? `（${items.length} 条）` : "")),
-        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她回复别人之前，草稿先到这儿 —— 你点「发」才发 ✓（否掉也会记一笔，她会学着改 ✓）"),
+        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她**回复别人 / 给别人评论**之前，草稿都先到这儿 —— 你点「发」才发 ✓（B 站 + 小红书两边排队；否掉也会记一笔，她会学着改 ✓）"),
         h("div", { className: "blw-rows" },
           items.length === 0
             ? h("div", { className: "blw-hint", style: { padding: "8px 0" } }, "（队列是空的 ✓）")
-            : items.map((x) => h("div", { className: "blw-row", key: x.id },
+            : items.map((x) => h("div", { className: "blw-row", key: `${x.platform ?? 'bili'}:${x.id}` },
               h("div", null,
-                h("div", { className: "blw-label" }, `→ ${x.who || "对方"}`, h("span", { className: "blw-badge" }, String(x.at ?? "").slice(5, 16).replace("T", " "))),
+                h("div", { className: "blw-label" },
+                  `→ ${x.who || x.author || "对方"}`,
+                  h("span", { className: "blw-badge" }, String(x.at ?? "").slice(5, 16).replace("T", " ")),
+                  x.platform === 'xhs'
+                    ? h("span", { className: "blw-plat xhs" }, "小红书")
+                    : h("span", { className: "blw-plat bili" }, "B 站")),
                 x.src ? h("div", { className: "blw-hint" }, `他说：${String(x.src).slice(0, 80)}`) : null,
-                h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要回：${x.message}`)),
+                x.title ? h("div", { className: "blw-hint" }, `要去的地方：${String(x.title).slice(0, 80)}`) : null,
+                h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要回：${String(x.message ?? x.text ?? '').slice(0, 160)}`)),
               h("div", { style: { display: "flex", gap: "6px" } },
-                h("button", { className: "blw-btn", disabled: !!busy, onClick: () => act(x.id, "approve") }, busy === x.id + "approve" ? "发出中…" : "发"),
-                h("button", { className: "blw-btn blw-btn2", disabled: !!busy, onClick: () => act(x.id, "reject") }, "删"))))),
+                h("button", { className: "blw-btn", disabled: !!busy, onClick: () => act(x.id, "approve", x.platform ?? 'bili') }, busy === x.id + "approve" ? "发出中…" : "发"),
+                h("button", { className: "blw-btn blw-btn2", disabled: !!busy, onClick: () => act(x.id, "reject", x.platform ?? 'bili') }, "删"))))),
         msg ? h("div", { className: msg.startsWith("✓") ? "blw-hint" : "blw-err" }, msg) : null);
     }
 

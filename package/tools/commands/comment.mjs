@@ -79,6 +79,32 @@ if (!oid || (!bvid && !refererArg) || !message) {
 if (dry && go) { console.error('pick either --dry or --go, not both'); process.exit(2) }
 if (!dry && !go) { console.error('refusing to run without an explicit --dry or --go'); process.exit(2) }
 
+// ── 回复硬闸（2026-10-21 老板要求：评论回复**必须**过审）──────────────────────
+// 背景：唤醒提示词早就写了「回复别人先写草稿」，但那只是**提醒** —— 她（模型）
+// 判断失误或图省事时，仍可能直接 `--go` 把话发出去 ✗。
+// 老板的原话：「评论回复的话需要审核」。所以这里改成**代码强制**：
+//   只要是「回复」（带 --root / --parent）而且带 --auto（她自己决定说的），
+//   就必须带 `--approved <待审草稿 id>`，且该草稿**真的还在待审队列里**。
+//   主人在面板点「发」时，插件（lib/index.js 的 pending/approve）才会带上这个 id ✓。
+//   —— 这样"绕过审核直接回复"在代码层不可能，不靠自觉。
+const isReply = Boolean(root || parent)
+if (isReply && AUTO) {
+  const approvedId = String(args.get('approved') ?? '')
+  const queueFile = path.join(process.env.USERPROFILE || process.env.HOME || '/', '.bili-ai', 'pending-replies.json')
+  if (!approvedId) {
+    console.error('✗ 回复别人的评论必须先走待审（老板 2026-10-21 定的硬规矩）')
+    console.error('  正确姿势：node bili.mjs reply-draft add --oid … --bvid … --root … --parent … --who 对方昵称 --src "他说的话" --message "你的回复"')
+    console.error('  然后等主人在「养鱼 → 待审核」里点「发」。主人在对话里点头也一样要走这条 ✓')
+    process.exit(3)
+  }
+  let queued = false
+  try { queued = (JSON.parse(fs.readFileSync(queueFile, 'utf8')).items ?? []).some((it) => String(it.id) === approvedId) } catch {}
+  if (!queued) {
+    console.error(`✗ --approved ${approvedId} 不在待审队列里（可能已发出或被删）→ 拒绝发送`)
+    process.exit(3)
+  }
+}
+
 // --share（分享型）：正文里必须 @ 主人 —— 没写 @ 就自动补上。
 // 昵称取配置的 owner.name（space/wbi/acc/info 可能被风控，不实时查）；
 // 昵称改过的话，发完用 `thread` 看 `@到:` 就能发现（没解析出来就说明名字旧了）。

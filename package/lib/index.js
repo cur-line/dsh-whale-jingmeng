@@ -316,11 +316,20 @@ function isLoopbackReq(req) {
     // ── 待审回复（2026-10-18 主人选 B 档：**发前审核**）──────────────────────────
     //   她的回复先进 pending-replies.json → 主人在「设置 → 养鱼 → 待审核」里点发才发 ✓
     const PENDING = path.join(HOME, '.bili-ai', 'pending-replies.json')
+    // 小红书评论待审（2026-10-21 老板要求：评论回复必须过审）—— 和 B 站回复共用一个面板
+    const XHS_PENDING = path.join(DSH_HOME, 'xhs', 'pending-comments.json')
+    const readPending = (file, platform) => {
+      try { return (JSON.parse(fs.readFileSync(file, 'utf8')).items ?? []).map((it) => ({ ...it, platform })) } catch { return [] }
+    }
+    const writePendingFile = (file, items) => {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ items }, null, 2) + '\n')
+    }
+    const stripPlatform = (items) => items.map(({ platform, ...rest }) => rest)
     route('exact', '/dsh-bili/api/pending', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
-      let items = []
-      try { items = JSON.parse(fs.readFileSync(PENDING, 'utf8')).items ?? [] } catch {}
-      json(res, 200, { ok: true, items })
+      // 两边合在一起给面板：B 站回复（platform=bili）+ 小红书评论（platform=xhs）
+      json(res, 200, { ok: true, items: [...readPending(PENDING, 'bili'), ...readPending(XHS_PENDING, 'xhs')] })
     })
     route('exact', '/dsh-bili/api/pending/reject', async (req, res) => {
       if (!isLoopbackReq(req)) { json(res, 403, { ok: false, error: '只接受本机回环访问' }); return }
@@ -328,6 +337,19 @@ function isLoopbackReq(req) {
       const b = JSON.parse(await readBody(req) || '{}')
       const id = String(b.id ?? '')
       if (!id) { json(res, 400, { ok: false, error: '需要 id' }); return }
+      // 小红书评论草稿：直接从队列删掉（否了也记一笔，她会学到"这种不要" ✓）
+      if (String(b.platform ?? '') === 'xhs') {
+        try {
+          const left = readPending(XHS_PENDING, 'xhs').filter((it) => String(it.id) !== id)
+          writePendingFile(XHS_PENDING, stripPlatform(left))
+          try {
+            fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
+              JSON.stringify({ at: new Date().toISOString(), kind: 'reply-rejected', target: null, note: `主人否掉了小红书评论草稿 ${id}${b.reason ? '：' + String(b.reason).slice(0, 80) : ''}` }) + '\n')
+          } catch {}
+          json(res, 200, { ok: true })
+        } catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }) }
+        return
+      }
       execFile(NODE_EXE, [resolveBiliMjs(), 'reply-draft', 'drop', id], { timeout: 20000, windowsHide: true }, (err, stdout) => {
         // 否掉也是一种反馈 → 记事件流（她下次能学到"这种不要" ✓）
         // ⚠️ 只有真的删掉了才记 ✗ —— 以前连点几次会重复记三条（2026-10-18 修 ✓）
@@ -347,6 +369,37 @@ function isLoopbackReq(req) {
       const b = JSON.parse(await readBody(req) || '{}')
       const id = String(b.id ?? '')
       if (!id) { json(res, 400, { ok: false, error: '需要 id' }); return }
+      // ── 小红书评论草稿（platform=xhs）：主人在面板点「发」才真正发出去 ──
+      // token（xsec_token）有时效，过期会发失败 → 保留草稿并如实报错，不吞稿。
+      if (String(b.platform ?? '') === 'xhs') {
+        if (approving.has(id)) { json(res, 409, { ok: false, error: '这条评论正在发送，请等待结果' }); return }
+        approving.add(id)
+        try {
+          const item = readPending(XHS_PENDING, 'xhs').find((it) => String(it.id) === id)
+          if (!item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
+          const cfgX = readConfig()
+          const toolsX = cfgX.toolsPath || path.join(HERE, '..', 'tools', 'bili.mjs')
+          const xhsMjs = path.join(path.dirname(toolsX), 'xhs.mjs')
+          const sent = await new Promise((resolve) => {
+            execFile(NODE_EXE, [xhsMjs, 'comment', String(item.feedId), '--token', String(item.token),
+              '--text', String(item.text), '--approved', id, '--go'], { timeout: 120000, windowsHide: true },
+              (err, stdout, stderr) => resolve({ err, out: String(stdout ?? ''), stderr: String(stderr ?? '') }))
+          })
+          const ok = !sent.err
+          if (ok) writePendingFile(XHS_PENDING, stripPlatform(readPending(XHS_PENDING, 'xhs').filter((it) => String(it.id) !== id)))
+          try {
+            fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
+              JSON.stringify({ at: new Date().toISOString(), kind: ok ? 'reply-sent' : 'reply-failed', target: item.feedId || null,
+                note: `${ok ? '主人批准并发出' : '发送失败，草稿保留'} · 小红书评论「${String(item.title ?? '').slice(0, 40)}」· ${String(item.text).slice(0, 60)}` }) + '\n')
+          } catch {}
+          json(res, 200, { ok, out: sent.out.slice(-600), err: sent.stderr.slice(0, 400) })
+        } catch (e) {
+          json(res, 500, { ok: false, error: String(e?.message ?? e) })
+        } finally {
+          approving.delete(id)
+        }
+        return
+      }
       if (approving.has(id)) { json(res, 409, { ok: false, error: '这条回复正在发送，请等待结果' }); return }
       approving.add(id)
       const run = (args) => new Promise((resolve) => {
@@ -362,7 +415,8 @@ function isLoopbackReq(req) {
         if (found.err || !item) { json(res, 400, { ok: false, error: '队列里没有这条（可能已经发过）' }); return }
         const cfg = readConfig()
         const args = ['comment', '--oid', item.oid, '--root', item.root, '--parent', item.parent,
-          '--message', item.message, '--auto', ...(cfg.listen?.oncePerPerson !== false ? ['--once-per-person'] : []), '--go']
+          '--message', item.message, '--auto', ...(cfg.listen?.oncePerPerson !== false ? ['--once-per-person'] : []),
+          '--approved', String(id), '--go']
         if (item.bvid) args.push('--bvid', item.bvid)
         const sent = await run(args)
         const ok = !sent.err && /已发布，评论 rpid=\d+/.test(sent.out)

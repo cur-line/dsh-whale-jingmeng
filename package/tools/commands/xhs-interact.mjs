@@ -36,6 +36,11 @@ const DRY = !!opt.dry
 const GO = !!opt.go
 const UNDO = !!opt.undo
 const TEXT = typeof opt.text === 'string' ? opt.text : ''
+// 评论待审（2026-10-21 老板要求：评论回复必须过审）：--draft 写草稿、--approved <id> 才允许真发
+const DRAFT = !!opt.draft
+const APPROVED = typeof opt.approved === 'string' ? opt.approved : ''
+const WHO = typeof opt.who === 'string' ? opt.who : ''
+const SRC = typeof opt.src === 'string' ? opt.src : ''
 
 // like / fav / comment 三个入口共用本文件，动作由**第一个位置参数**给出。
 // 前两个用法：node xhs.mjs like  <feed_id> --token <t>
@@ -57,17 +62,42 @@ if (!sub) {
 }
 if (!actualFeedId) die(`缺 feed_id。用法：node xhs.mjs ${sub} <feed_id> --token <xsec_token> --dry|--go`)
 if (!actualToken) die('缺 --token <xsec_token>。先跑 node xhs.mjs feed 取一个。')
-if (!DRY && !GO) {
+if (!DRY && !GO && !DRAFT) {
   die([
     '⚠️  必须显式选择模式 —— 不给默认值，避免误发。',
     `   node xhs.mjs ${sub} ${actualFeedId} --token ${actualToken} --dry    # 只打印，不动手`,
-    `   node xhs.mjs ${sub} ${actualFeedId} --token ${actualToken} --go     # 真的发出去`,
-  ].join('\n'))
+    `   node xhs.mjs ${sub} ${actualFeedId} --token ${actualToken} --go     # 真的发出去（评论另需 --approved）`,
+    sub === 'comment' ? `   node xhs.mjs comment ${actualFeedId} --token ${actualToken} --text "…" --draft   # 写进待审队列等主人批 ✓` : '',
+  ].filter(Boolean).join('\n'))
 }
 if (DRY && GO) die('--dry 和 --go 不能同时给。')
 if (sub === 'comment' && !TEXT.trim()) die('评论必须给 --text "…"')
 if (sub === 'comment' && TEXT.length > 300) {
   die(`评论太长（${TEXT.length} 字）。小红书评论区建议 ≤300 字，短一点更像人。`)
+}
+
+// ── 评论待审闸（2026-10-21 老板要求：评论/回复必须过审）────────────────────
+// 小红书这边以前是 `--go` 直接发出去 ✗。现在跟 B 站一个口径：
+//   写草稿（--draft）→ 落 ~/.dsh/xhs/pending-comments.json → 主人在「养鱼 → 待审核」点「发」才发。
+//   --go 只有在带 `--approved <id>`（且草稿真在队列里）时才放行 —— 代码强制，不靠自觉。
+const XHS_PENDING = path.join(HOME, '.dsh', 'xhs', 'pending-comments.json')
+const readPending = () => { try { return JSON.parse(fs.readFileSync(XHS_PENDING, 'utf8')).items ?? [] } catch { return [] } }
+const writePending = (items) => {
+  fs.mkdirSync(path.dirname(XHS_PENDING), { recursive: true })
+  fs.writeFileSync(XHS_PENDING, JSON.stringify({ items }, null, 2) + '\n')
+}
+if (sub === 'comment') {
+  if (DRAFT && (DRY || GO)) die('--draft 不能和 --dry/--go 同时给（--draft 就是写草稿、先不发）。')
+  if (GO && !APPROVED) {
+    die([
+      '✗ 小红书评论必须先过审（老板 2026-10-21 定的硬规矩）',
+      '  正确姿势：加 --draft 写草稿 → 等主人在「养鱼 → 待审核」点「发」。',
+      '  面板点「发」时插件会自动带上 --approved <id> ✓（你自己拼一个 id 也没用，要真在队列里 ✓）',
+    ].join('\n'), 3)
+  }
+  if (APPROVED && !readPending().some((it) => String(it.id) === APPROVED)) {
+    die(`✗ --approved ${APPROVED} 不在待审队列里（可能已发或被删）→ 拒绝发送`, 3)
+  }
 }
 
 // ── 读一遍目标，确认它存在（也顺便拿到标题，留证用）──
@@ -109,6 +139,20 @@ if (!q.ok) {
   die(`✗ ${q.reason}\n  今日已用 ${q.used}/${q.limit}。不是故障，是缰绳。`, 2)
 }
 console.log(`[限额闸] ✓ ${sub} ${q.used}/${q.limit}（小红书独立账本）`)
+
+// ── 写草稿（--draft）：进待审队列就收工 —— 不发送、不记账、不留证 ✓ ──
+if (sub === 'comment' && DRAFT) {
+  const queue = readPending()
+  const id = 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+  queue.push({
+    id, platform: 'xhs', feedId: String(actualFeedId), token: String(actualToken), text: TEXT,
+    who: WHO, src: SRC, title: noteTitle, author: noteAuthor, at: new Date().toISOString(),
+  })
+  writePending(queue)
+  console.log(`✓ 已写进待审队列（id ${id}）· ${noteTitle || actualFeedId}`)
+  console.log('  等主人在「养鱼 → 待审核」点「发」；他不点，这条就不会出去 ✓')
+  process.exit(0)
+}
 
 // ── 干跑 ──
 const actionLabel = sub === 'like' ? (UNDO ? '取消点赞' : '点赞')
