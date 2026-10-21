@@ -310,6 +310,10 @@ window.__ModuleLoader__.load({
       ".jm-vp-kind{font-size:10.5px;color:var(--dsw-alias-label-tertiary);padding:8px 0 6px}",
       ".jm-vp-prompt{margin:0;font-family:inherit;font-size:11.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;color:var(--dsw-alias-label-secondary);max-height:260px;overflow-y:auto}",
       ".jm-vp-btns{display:flex;gap:7px;padding-top:9px}",
+      /* 待审视频预览（2026-10-21 加）*/
+      ".jm-vp-video{display:flex;gap:12px;margin-top:8px;align-items:flex-start}",
+      ".jm-vp-cover{width:220px;height:124px;object-fit:cover;border-radius:8px;border:.5px solid var(--dsw-alias-border-l1);flex:0 0 auto;background:#04101f}",
+      ".jm-vp-vmeta{flex:1;min-width:0;font-size:11.5px;line-height:1.75;color:var(--dsw-alias-label-secondary)}",
       ".jm-plat-row b.off{color:var(--dsw-alias-state-warn-primary)}",
       ".jm-plat-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right}",
       ".jm-plat-live{margin-left:auto;font-size:10px;font-weight:650;padding:1.5px 7px;border-radius:999px}",
@@ -760,14 +764,15 @@ window.__ModuleLoader__.load({
 
       return h("div", null,
         h("div", { className: "blw-group" }, "待审核" + (items.length ? `（${items.length} 条）` : "")),
-        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她**回复别人 / 给别人评论 / 发动态 / 发图文**之前，草稿都先到这儿 —— 你点「发」才发 ✓（B 站 + 小红书两边排队；否掉也会记一笔，她会学着改 ✓）"),
+        h("div", { className: "blw-hint", style: { marginTop: "2px" } }, "她**回复 / 评论 / 发动态 / 发图文 / 发视频**之前，都先到这儿 —— 你点「发」才发 ✓（B 站 + 小红书两边排队；否掉也会记一笔，她会学着改 ✓）"),
         h("div", { className: "blw-rows" },
           items.length === 0
             ? h("div", { className: "blw-hint", style: { padding: "8px 0" } }, "（队列是空的 ✓）")
             : items.map((x) => {
               // 四类待审（2026-10-21 老板定的）：B站回复 / 小红书评论 / B站动态 / 小红书图文
               const PLAT_LABEL = {
-                'bili': 'B 站回复', 'xhs': '小红书评论', 'bili-dynamic': 'B 站动态', 'xhs-note': '小红书图文',
+                'bili': 'B 站回复', 'xhs': '小红书评论', 'bili-dynamic': 'B 站动态',
+                'xhs-note': '小红书图文', 'bili-video': 'B 站视频', 'xhs-video': '小红书视频',
               }
               const pName = PLAT_LABEL[String(x.platform ?? 'bili')] ?? 'B 站回复'
               const isReply = x.platform === 'bili' || x.platform === 'xhs'
@@ -783,7 +788,15 @@ window.__ModuleLoader__.load({
                   x.platform === 'xhs-note' && h("div", null,
                     h("div", { className: "blw-hint" }, `你要发（图文）· 标题：${String(x.title ?? '')}`),
                     h("div", { className: "blw-hint", style: { whiteSpace: "pre-wrap" } }, String(x.content ?? '').slice(0, 200)),
-                    h("div", { className: "blw-hint" }, `配图 ${(x.images ?? []).length} 张`))),
+                    h("div", { className: "blw-hint" }, `配图 ${(x.images ?? []).length} 张`)),
+                  (x.platform === 'bili-video' || x.platform === 'xhs-video') && h("div", null,
+                    h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要发（视频）· ${String(x.title ?? '')}`),
+                    h("div", { className: "jm-vp-video" },
+                      x.cover ? h("img", { className: "jm-vp-cover", src: `file://${x.cover}`, alt: "" }) : null,
+                      h("div", { className: "jm-vp-vmeta" },
+                        h("div", null, `${x.aspect ?? ''} · ${x.duration ?? '?'} 秒 · ${x.sizeMB ?? '?'} MB`),
+                        x.note ? h("div", { className: "blw-hint" }, String(x.note)) : null,
+                        h("div", { className: "blw-hint", style: { wordBreak: "break-all" } }, `文件：${String(x.file ?? '')}`))))),
                 h("div", { style: { display: "flex", gap: "6px" } },
                   h("button", { className: "blw-btn", disabled: !!busy, onClick: () => act(x.id, "approve", x.platform ?? 'bili') }, busy === x.id + "approve" ? "发出中…" : "发"),
                   h("button", { className: "blw-btn blw-btn2", disabled: !!busy, onClick: () => act(x.id, "reject", x.platform ?? 'bili') }, "删")))})),

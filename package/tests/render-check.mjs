@@ -225,6 +225,8 @@ for (const [label, cfg, d] of CASES) {
 console.log('')
 // 全量数据下必须真的渲染出这些文案（防止「不报错但整块没内容」）
 const joined = allText.join('\n')
+const MUST_VIDEO = ['B 站视频', '小红书视频', 'jm-vp-video', 'jm-vp-cover']
+const SRC_HAS_VIDEO = ['bili-video', 'xhs-video', 'jm-vp-cover', '你要发（视频）']
 const MUST = [
   ['给你的视频建议', '视频建议卡片'],
   ['标记已阅', '未阅按钮'],
@@ -241,6 +243,11 @@ if (!allLinks.some((u) => u.startsWith('https://www.xiaohongshu.com/explore/')))
 }
 if (!allLinks.some((u) => u.startsWith('https://www.bilibili.com/video/'))) {
   missing.push('B站视频的可点链接')
+}
+// 视频待审分支：源码级断言（fixture 里没有视频队列，渲染层测不到这类）
+const clientSrc = fs.readFileSync(CLIENT, 'utf8')
+for (const kw of SRC_HAS_VIDEO) {
+  if (!clientSrc.includes(kw)) missing.push(`视频待审 UI（源码缺「${kw}」）`)
 }
 if (missing.length) {
   failures.push(`【全量数据】渲染结果里没找到这些内容：\n      ${missing.join('\n      ')}`)

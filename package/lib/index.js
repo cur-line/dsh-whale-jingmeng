@@ -322,6 +322,8 @@ function isLoopbackReq(req) {
     const DYNAMIC_PENDING = path.join(HOME, '.dsh', 'bili-whale-dynamic-queue.json')
     // 小红书图文待审（2026-10-21 老板要求：图文也要审）—— 与 note 命令同路径
     const NOTES_PENDING = path.join(HOME, '.dsh', 'xhs', 'pending-notes.json')
+    // 视频待审（2026-10-21 老板要求：视频也要审）—— HyperFrames 渲染出的 MP4 先入队
+    const VIDEO_PENDING = path.join(HOME, '.dsh', 'bili-whale-video-queue.json')
     const readPending = (file, platform) => {
       try { return (JSON.parse(fs.readFileSync(file, 'utf8')).items ?? []).map((it) => ({ ...it, platform })) } catch { return [] }
     }
@@ -338,6 +340,7 @@ function isLoopbackReq(req) {
         ...readPending(XHS_PENDING, 'xhs'),
         ...readPending(DYNAMIC_PENDING, 'bili-dynamic'),
         ...readPending(NOTES_PENDING, 'xhs-note'),
+        ...readPending(VIDEO_PENDING, 'bili-video'),
       ] })
     })
     route('exact', '/dsh-bili/api/pending/reject', async (req, res) => {
@@ -347,7 +350,7 @@ function isLoopbackReq(req) {
       const id = String(b.id ?? '')
       if (!id) { json(res, 400, { ok: false, error: '需要 id' }); return }
       // 小红书评论 / B站动态 / 小红书图文 草稿：直接从对应队列删掉（否了也记一笔 ✓）
-      const REJECT_FILES = { xhs: XHS_PENDING, 'bili-dynamic': DYNAMIC_PENDING, 'xhs-note': NOTES_PENDING }
+      const REJECT_FILES = { xhs: XHS_PENDING, 'bili-dynamic': DYNAMIC_PENDING, 'xhs-note': NOTES_PENDING, 'bili-video': VIDEO_PENDING }
       const rejectFile = REJECT_FILES[String(b.platform ?? '')]
       if (rejectFile) {
         try {
@@ -355,7 +358,7 @@ function isLoopbackReq(req) {
           writePendingFile(rejectFile, stripPlatform(left))
           try {
             fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'),
-              JSON.stringify({ at: new Date().toISOString(), kind: 'reply-rejected', target: null, note: `主人否掉了${b.platform === 'xhs' ? '小红书评论' : b.platform === 'bili-dynamic' ? 'B站动态' : '小红书图文'}草稿 ${id}${b.reason ? '：' + String(b.reason).slice(0, 80) : ''}` }) + '\n')
+              JSON.stringify({ at: new Date().toISOString(), kind: 'reply-rejected', target: null, note: `主人否掉了${b.platform === 'xhs' ? '小红书评论' : b.platform === 'bili-dynamic' ? 'B站动态' : b.platform === 'bili-video' ? 'B站视频' : '小红书图文'}草稿 ${id}${b.reason ? '：' + String(b.reason).slice(0, 80) : ''}` }) + '\n')
           } catch {}
           json(res, 200, { ok: true })
         } catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }) }

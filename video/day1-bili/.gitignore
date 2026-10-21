@@ -1,0 +1,5 @@
+.hyperframes/
+node_modules/
+out/shots/
+out/verify/
+out/*.mp4
