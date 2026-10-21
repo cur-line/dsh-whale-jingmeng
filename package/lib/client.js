@@ -1066,7 +1066,7 @@ window.__ModuleLoader__.load({
               h("div", { className: "jm-plat" },
                 h("div", { className: "jm-plat-h" },
                   h("span", { className: "jm-plat-badge xhs" }, "小红书"),
-                  h("span", { className: "jm-plat-name" }, plat.xhs?.name || "裂纹虎刻"),
+                  h("span", { className: "jm-plat-name" }, plat.xhs?.name || "鲸檬"),
                   h("span", { className: `jm-plat-live${plat.xhs?.logged ? " on" : " off"}` }, plat.xhs?.logged ? "在线" : "未登录")),
                 h("div", { className: "jm-plat-row" }, h("span", null, "事件"), h("b", null, `${plat.xhs?.todayEvents ?? 0} 今日 / ${plat.xhs?.events ?? 0} 累计`)),
                 h("div", { className: "jm-plat-row" }, h("span", null, "读懂"), h("b", null, `${plat.xhs?.readCount ?? 0} 条`)),

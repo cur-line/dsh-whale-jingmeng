@@ -200,7 +200,7 @@ function platformStatus() {
       todayEvents: todayEvents.filter((e) => !String(e.kind || '').startsWith('xhs-')).length,
     },
     xhs: {
-      name: '裂纹虎刻',
+      name: cfg?.xhs?.note ?? '鲸檬',
       logged: xhsLogged,
       events: xhsEvents.length,
       todayEvents: xhsToday.length,
