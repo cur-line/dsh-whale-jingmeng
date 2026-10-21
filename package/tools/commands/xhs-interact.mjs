@@ -36,6 +36,8 @@ const DRY = !!opt.dry
 const GO = !!opt.go
 const UNDO = !!opt.undo
 const TEXT = typeof opt.text === 'string' ? opt.text : ''
+// ⚠️ 2026-10-21 老板要求：点赞/收藏/评论都要写明理由（为什么想点它），没理由不放行
+const REASON = typeof opt.reason === 'string' ? opt.reason.trim() : ''
 // 评论待审（2026-10-21 老板要求：评论回复必须过审）：--draft 写草稿、--approved <id> 才允许真发
 const DRAFT = !!opt.draft
 const APPROVED = typeof opt.approved === 'string' ? opt.approved : ''
@@ -75,6 +77,10 @@ if (sub === 'comment' && !TEXT.trim()) die('评论必须给 --text "…"')
 if (sub === 'comment' && TEXT.length > 300) {
   die(`评论太长（${TEXT.length} 字）。小红书评论区建议 ≤300 字，短一点更像人。`)
 }
+if (!UNDO && REASON.length < 8) {
+  die(`✗ 缺少 --reason "为什么${sub === 'like' ? '点赞' : sub === 'fav' ? '收藏' : '评论'}"（≥8 字）`, 2)
+}
+// 老板要求：每次互动都要说清为什么。没理由的不要动 ✗
 
 // ── 评论待审闸（2026-10-21 老板要求：评论/回复必须过审）────────────────────
 // 小红书这边以前是 `--go` 直接发出去 ✗。现在跟 B 站一个口径：
@@ -225,7 +231,7 @@ try {
 try {
   logEvent(sub === 'comment' ? 'xhs-comment' : `xhs-${sub}`, {
     target: actualFeedId,
-    note: `${actionLabel}「${noteTitle}」`,
-    meta: { author: noteAuthor, undo: UNDO, text: sub === 'comment' ? TEXT : undefined },
+    note: `${actionLabel}「${noteTitle}」${REASON ? ` · ${REASON.slice(0, 40)}` : ''}`,
+    meta: { author: noteAuthor, undo: UNDO, reason: REASON || undefined, text: sub === 'comment' ? TEXT : undefined },
   })
 } catch {}

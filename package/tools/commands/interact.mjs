@@ -55,7 +55,7 @@ function trackSuccess(action, result) {
     record({ type: cmd, target: bvid, note: `${cmd}: ${action} 已成功`, auto: true })
     recorded = true
   }
-  logEvent('interact', { target: bvid, note: `${action}${UNDO ? '（撤销）' : ''}`, meta: { action, command: cmd, undo: UNDO } })
+  logEvent('interact', { target: bvid, note: `${action}${UNDO ? '（撤销）' : ''}${REASON ? ` · ${REASON.slice(0, 40)}` : ''}`, meta: { action, command: cmd, undo: UNDO, reason: REASON || undefined } })
   return result
 }
 
@@ -163,8 +163,20 @@ function fuseCheck(action) {
 }
 
 // ── 具体动作 ────────────────────────────────────────────────────
+// ⚠️ 2026-10-21 老板要求：点赞 / 投币 / 收藏**必须写明理由**（为什么想点它）。
+//   没理由就不放行 ✗ —— 理由进事件流，养鱼页上看得见。
+//   撤销（--undo）时理由可选：撤的是之前的动作，理由可以省。
+const REASON = String(opt('reason') ?? '').trim()
+const requireReason = (what) => {
+  if (UNDO || REASON.length >= 8) return
+  console.error(`✗ 缺少 --reason "为什么${what}"（≥8 字）`)
+  console.error('  老板要求：每次互动都要说清为什么。没理由的不要动。')
+  process.exit(2)
+}
+
 async function doLike() {
   const action = UNDO ? 2 : 1
+  requireReason('点赞')
   fuseCheck('like')
   console.log(`[点赞] ${bvid} → ${UNDO ? '取消赞' : '点赞'}`)
   if (DRY) return { ok: true, dry: true }
@@ -184,6 +196,7 @@ async function doLike() {
 
 async function doCoin() {
   const n = opt('x2', false) ? 2 : (Number(CFG_INTERACT.coinMultiplier) || 1)
+  requireReason('投币')
   fuseCheck('coin')
   console.log(`[投币] ${bvid} → ${n} 币`)
   if (DRY) return { ok: true, dry: true }
@@ -201,6 +214,7 @@ async function doCoin() {
 }
 
 async function doFav() {
+  requireReason('收藏')
   const folderArg = opt('folder', DEFAULT_FOLDER)
   fuseCheck('fav')
   if (!folderArg) {
