@@ -144,9 +144,14 @@ function checkRisk(j, what, action = null) {
   if (RISK.has(j.code)) {
     console.error(`\n⛔ ${what} 撞到风控（code=${j.code} ${j.message ?? ''}）`)
     console.error('   已停手，按原样不重试。建议等 10 分钟以上再动，或今天到此为止。')
+    // 撞风控码 = 号可能已经被盯上 → 除单动作熔断外，**全部写动作一起冷却 2 小时**
+    const g = fuse.tripGlobal(j.code)
+    console.error(`   🧊 全部写动作冷却到 ${new Date(g.until).toLocaleTimeString('zh-CN')}（2 小时）`)
     if (action) {
       const t = fuse.trip(action)
-      console.error(`   🔥 已熔断「${action}」到 ${new Date(t.until).toLocaleString('zh-CN')}（连续第 ${t.trips} 次）`)
+      console.error(t.permanent
+        ? `   🔒 已把「${action}」**永久上锁**（这个动作对脚本最敏感，只能人工解锁）`
+        : `   🔥 已熔断「${action}」到 ${new Date(t.until).toLocaleString('zh-CN')}（连续第 ${t.trips} 次）`)
     }
     process.exit(5)
   }
@@ -155,8 +160,16 @@ function checkRisk(j, what, action = null) {
 // 保险丝检查：该动作被熔断就停手（interact 是显式手动命令，仍可 --no-gate 绕过？不——保险丝是硬约束，不给绕过）
 function fuseCheck(action) {
   if (!fuse.allow(action)) {
-    const st = fuse.status()
-    console.error(`⛔ 「${action}」被 B站 风控熔断了（暂停到 ${new Date(st[action]?.until).toLocaleString('zh-CN')}，已连续 ${st[action]?.trips} 次）`)
+    const g = fuse.globalBlock()
+    if (g) {
+      console.error(`⛔ 全部写动作在冷却中（撞过风控 code=${g.code ?? '?'}），到 ${new Date(g.until).toLocaleString('zh-CN')} 才恢复`)
+      console.error('   今天先只读：看视频、读评论、写日记都行，别动写动作。')
+      process.exit(2)
+    }
+    const st = fuse.status()[action]
+    console.error(st?.permanent
+      ? `⛔ 「${action}」已被**永久上锁**（之前撞过风控）。只能人工解锁：node bili.mjs fuse reset ${action}`
+      : `⛔ 「${action}」被 B站 风控熔断了（暂停到 ${new Date(st?.until).toLocaleString('zh-CN')}，已连续 ${st?.trips} 次）`)
     console.error('   这是保险丝，不是限额——等它自己恢复，或跑 fuse reset <action> 手动解除。')
     process.exit(2)
   }

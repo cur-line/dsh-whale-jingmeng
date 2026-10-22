@@ -19,6 +19,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import * as chatty from '../lib/chatty.mjs'
 
 const HOME = process.env.USERPROFILE || process.env.HOME || '.'
 const FILE = path.join(HOME, '.bili-ai', 'pending-replies.json')
@@ -43,6 +44,23 @@ const save = (o) => { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.
 if (cmd === 'add') {
   const { oid, bvid, root, parent, who, message, src } = opt
   if (!oid || !message) { console.error('需要 --oid 和 --message'); process.exit(2) }
+
+  // 2026-10-22：她有权懒得回 —— 「想回的程度」够不上今天这一档的门槛，就不让进队列。
+  // 以前是模型想回就回，几乎条条都回 ✗ 现在由代码卡（chatty.mjs 每天随机一档）。
+  const want = opt.want === undefined ? null : Number(opt.want)
+  if (want === null || !Number.isFinite(want)) {
+    console.error('✗ 缺 --want <1~5>：先想你有多想回这一条')
+    console.error('  今天这一档的门槛：node bili.mjs chatty')
+    console.error('  够不着就别硬回 —— 记一笔：node bili.mjs chatty ignore --to "谁" --why "……"')
+    process.exit(2)
+  }
+  const gate = chatty.pass(want)
+  if (!gate.ok) {
+    console.error(`✗ 这条不够想回（你给 ${want} 分，今天门槛 ${gate.bar} —— ${gate.label}）`)
+    console.error(`  ${gate.line}`)
+    console.error('  真懒得回就记一笔，也不丢人：node bili.mjs chatty ignore --to "谁" --why "……"')
+    process.exit(3)
+  }
   if (!root || !parent) { console.error('回复要有 --root 和 --parent（坐标从 comment-digest 拿）'); process.exit(2) }
   const text = String(message).trim()
   if (text.length > 500) { console.error('草稿太长（>500），砍短'); process.exit(2) }

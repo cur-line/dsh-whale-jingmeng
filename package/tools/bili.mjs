@@ -36,6 +36,8 @@ const map = {
   task: ['commands/task.mjs', '任务箱：list / add / claim / done'],
   vip: ['commands/vip.mjs', '特别关注：check 拉新视频 / done <BV> 记账 / status 看名单与配额'],
   fuse: ['commands/fuse.mjs', '动作保险丝（B站风控熔断）：status 看状态 / reset <动作> 手动解除'],
+  chatty: ['commands/chatty.mjs', '这会儿话多不多（她有权懒得回）：看今天的档 / roll / set / ignore --to … --why …'],
+  mind: ['commands/mind.mjs', '她的内心：独白 + 喜欢分 + 心情，每晚反思「最近的我」'],
   interact: ['commands/interact.mjs', '视频互动：like / coin / fav / triple / status'],
   review: ['commands/review.mjs', '复盘：账号数据 + 她做了什么 + 已发日记表现（只读）：--days 7 --json'],
   create: ['commands/create.mjs', '创作：brief 生成简报 / outline 生成分镜骨架 / list / show'],

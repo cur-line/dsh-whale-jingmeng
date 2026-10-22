@@ -358,6 +358,54 @@ const snapshot = {
       }))
   })(),
 
+  // ── 她的内心（2026-10-22 加）：面板显示「最近的我」+ 心情 + 今天的独白 ──────
+  mind: (() => {
+    try {
+      const m = JSON.parse(fs.readFileSync(path.join(DSH, 'mind.json'), 'utf8'))
+      const today = new Date().toLocaleDateString('sv-SE')
+      const thoughts = Array.isArray(m.thoughts) ? m.thoughts : []
+      return {
+        mood: m.mood || '',
+        obsession: m.obsession || '',
+        goal: m.goal || '',
+        self: m.self || '',
+        interests: (Array.isArray(m.interests) ? m.interests : []).map((x) => x.kw).slice(0, 8),
+        todayThoughts: thoughts.filter((x) => x.date === today).length,
+        recent: thoughts.slice(0, 3).map((x) => ({ score: x.score, title: x.title, thought: String(x.thought || '').slice(0, 120) })),
+      }
+    } catch { return { mood: '', obsession: '', self: '', interests: [], todayThoughts: 0, recent: [] } }
+  })(),
+
+  // ── 今天话多不多（2026-10-22 加）────────────────────────────────
+  chatty: (() => {
+    try {
+      const c = JSON.parse(fs.readFileSync(path.join(DSH, 'chatty.json'), 'utf8'))
+      const today = new Date().toLocaleDateString('sv-SE')
+      if (c.date !== today) return null
+      return { tier: c.tier, label: c.label, bar: c.bar, line: c.line }
+    } catch { return null }
+  })(),
+
+  // ── 动作保险丝（2026-10-22 加）：面板上看哪些写动作被风控熔断了 ──────────
+  fuses: (() => {
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(DSH, 'bili-fuse.json'), 'utf8'))
+      const now = Date.now()
+      const out = {}
+      for (const [action, f] of Object.entries(raw)) {
+        const blocked = f?.permanent || (f?.until && now < Number(f.until))
+        if (!blocked) continue
+        out[action] = {
+          permanent: !!f.permanent,
+          until: f.permanent ? null : new Date(Number(f.until)).toISOString(),
+          trips: f.trips ?? 1,
+          global: action === '__global',
+        }
+      }
+      return out
+    } catch { return {} }
+  })(),
+
   // ── 今日作息（2026-10-22 加）：面板显示「她今天什么时候露面」────────────
   // 数据源是 whale-night.json（调度器每 tick 会刷新），只读不改。
   schedule: (() => {

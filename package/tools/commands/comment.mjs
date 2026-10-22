@@ -15,6 +15,7 @@ import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { config } from '../lib/config.mjs'
+import * as fuse from '../lib/fuse.mjs'
 import { checkComment } from '../lib/comment-safety.mjs'
 
 // ── 限额闸（B 档「限额自主」的代码强制部分，2026-10-14 主人选 B 档）────────────────
@@ -102,6 +103,22 @@ if (isReply && AUTO) {
   if (!queued) {
     console.error(`✗ --approved ${approvedId} 不在待审队列里（可能已发出或被删）→ 拒绝发送`)
     process.exit(3)
+  }
+}
+
+// 保险丝：评论动作被熔断 / 全局冷却中 → 直接停手（2026-10-22）
+if (!dry) {
+  if (!fuse.allow('comment')) {
+    const g = fuse.globalBlock()
+    if (g) {
+      console.error(`⛔ 全部写动作在冷却中（撞过风控 code=${g.code ?? '?'}），到 ${new Date(g.until).toLocaleString('zh-CN')}`)
+    } else {
+      const st = fuse.status().comment
+      console.error(st?.permanent
+        ? '⛔ 「评论」已永久上锁，只能人工解：node bili.mjs fuse reset comment'
+        : `⛔ 「评论」被风控熔断到 ${new Date(st?.until).toLocaleString('zh-CN')}`)
+    }
+    process.exit(2)
   }
 }
 
@@ -349,6 +366,16 @@ if (out.code === 0) {
     12002: '评论区已关闭',
   }
   if (hints[String(out.code)]) console.log(`  提示：${hints[String(out.code)]}`)
+
+  // 2026-10-22：被风控拒了 → 熔断「评论」这个动作（+ 撞风控码时全局冷却 2 小时）
+  // 以前只退出不记熔断，结果下一轮又去撞同一堵墙 ✗
+  const code = Number(out.code)
+  if (fuse.isRiskCode(code) || [12015, 12051].includes(code)) {
+    const g = fuse.tripGlobal(code)
+    const t = fuse.trip('comment')
+    console.log(`  🧊 全部写动作冷却到 ${new Date(g.until).toLocaleTimeString('zh-CN')}；🔥 「评论」熔断到 ${new Date(t.until).toLocaleString('zh-CN')}`)
+    console.log('  恢复：node bili.mjs fuse reset comment')
+  }
 }
 
 // P0-6（Kimi 评审 #6）：走到这里 = 没发成功。给非 0 退出码，

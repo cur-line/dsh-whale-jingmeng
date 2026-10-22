@@ -357,6 +357,18 @@ window.__ModuleLoader__.load({
       ".jm-appr-group:first-child{margin-top:0}",
       ".jm-appr-group>span:first-child{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.02em}",
       ".jm-appr-group-n{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      /* 内心（2026-10-22）*/
+      ".jm-mind-self{font-size:13px;line-height:1.85;color:var(--dsw-alias-label-primary);padding:10px 13px;border-radius:9px;background:rgba(63,199,245,.07);border-left:2px solid var(--dsw-alias-brand-primary);white-space:pre-wrap}",
+      ".jm-mind-thoughts{display:flex;flex-direction:column;gap:6px;margin-top:9px}",
+      ".jm-mind-th{display:flex;gap:8px;align-items:baseline;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary)}",
+      ".jm-mt-score{flex:0 0 auto;font-weight:700;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-mt-text{flex:1}",
+      /* 保险丝（2026-10-22）*/
+      ".jm-fuses{display:flex;flex-direction:column;gap:6px}",
+      ".jm-fuse-row{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:8px;background:rgba(255,120,150,.07);border:.5px solid rgba(255,120,150,.22)}",
+      ".jm-fuse-name{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary);flex:0 0 auto}",
+      ".jm-fuse-why{font-size:11px;color:var(--dsw-alias-label-secondary);flex:1}",
+      ".jm-fuse-btn{padding:3px 10px!important;font-size:11px!important}",
       /* 今日露面条（2026-10-22）*/
       /* 时辰选择器（2026-10-22）*/
       ".blw-shichen{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}",
@@ -1438,6 +1450,65 @@ window.__ModuleLoader__.load({
           h("span", { className: "jm-pb-go" }, "去审批 →"));
       })();
 
+      // 她的内心（2026-10-22）：最近的我 + 心情 + 今天写了几条独白
+      const mindCard = (() => {
+        const m = d.mind || {};
+        const has = m.self || m.mood || m.obsession || (m.recent || []).length;
+        if (!has) return null;
+        return h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" },
+            h("span", null, "最近的我"),
+            h("span", { className: "jm-meta" },
+              [m.mood ? `心情：${m.mood}` : null, d.chatty ? `这会儿：${d.chatty.label}` : null]
+                .filter(Boolean).join(" · "))),
+          m.self ? h("div", { className: "jm-mind-self" }, m.self) : null,
+          (m.recent || []).length ? h("div", { className: "jm-mind-thoughts" },
+            m.recent.slice(0, 3).map((t, i) => h("div", { key: i, className: "jm-mind-th" },
+              h("span", { className: "jm-mt-score" }, `${t.score}/5`),
+              h("span", { className: "jm-mt-text" },
+                t.title ? `《${t.title}》${t.thought}` : t.thought)))) : null,
+          (m.obsession || (m.interests || []).length) ? h("div", { className: "blw-hint", style: { marginTop: "6px" } },
+            [m.obsession ? `最近着迷：${m.obsession}` : null,
+             (m.interests || []).length ? `兴趣：${(m.interests || []).join(" · ")}` : null]
+              .filter(Boolean).join("　")) : null);
+      })();
+
+      // 动作保险丝（2026-10-22）：哪些写动作被风控拦了 + 一键解锁
+      const FUSE_NAME = { like: "点赞", coin: "投币", fav: "收藏", share: "分享", comment: "评论", dynamic: "发动态", xhs: "小红书" };
+      const fuseCard = (() => {
+        const f = d.fuses || {};
+        const keys = Object.keys(f);
+        if (!keys.length) return null;
+        return h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" },
+            h("span", null, "被风控拦住的写动作"),
+            h("span", { className: "jm-meta" }, `${keys.length} 个`)),
+          h("div", { className: "jm-fuses" },
+            keys.map((k) => {
+              const x = f[k];
+              return h("div", { key: k, className: "jm-fuse-row" },
+                h("span", { className: "jm-fuse-name" }, x.global ? "全部写动作（冷却）" : (FUSE_NAME[k] || k)),
+                h("span", { className: "jm-fuse-why" },
+                  x.permanent ? "永久上锁 · 只能手动解"
+                    : x.global ? `冷却到 ${String(x.until || "").slice(11, 16)}`
+                    : `熔断到 ${String(x.until || "").slice(5, 16).replace("T", " ")}`),
+                h("button", {
+                  className: "jm-btn jm-btn-ghost jm-fuse-btn", disabled: !!busy,
+                  onClick: async () => {
+                    try {
+                      const r = await fetch(`${API}/fuse/reset`, {
+                        method: "POST", headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ action: k }),
+                      });
+                      const j = await r.json().catch(() => ({}));
+                      if (j.ok) load(); else setErr?.(j.error || "解锁失败");
+                    } catch (e) { /* 读不到就算了 */ }
+                  },
+                }, "解锁"));
+            })),
+          h("div", { className: "blw-hint" }, "熔断是保护：被 B 站拒过的动作先停一阵，别反复撞同一堵墙。解锁前先想想是不是该等一等。"));
+      })();
+
       // 今日露面条（2026-10-22 老板：「让她更活泼，每天多冒泡几次」）
       // 8 个时辰一览：已露面 / 待露面 / 今天不想去 / 错过了
       const scheduleCard = (() => {
@@ -1476,6 +1547,8 @@ window.__ModuleLoader__.load({
         moodCard,
         cards,
         scheduleCard,
+        fuseCard,
+        mindCard,
         // ③ 她今天产出了什么
         diaryHomeCard,
         h("div", { className: "jm-split" },

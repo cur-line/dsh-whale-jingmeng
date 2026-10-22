@@ -671,6 +671,25 @@ function isLoopbackReq(req) {
       }
     })
 
+    // ── 动作保险丝：面板一键解锁（2026-10-22）────────────────────────
+    // 熔断是「人的决定才恢复」，所以这里只做 reset，不自动恢复。
+    route('exact', '/dsh-bili/api/fuse/reset', async (req, res) => {
+      if (req.method !== 'POST') { json(res, 405, { ok: false }); return }
+      try {
+        const body = JSON.parse(await readBody(req) || '{}')
+        const action = String(body.action || '').trim()
+        if (!action) { json(res, 400, { ok: false, error: '需要 action' }); return }
+        const fuseFile = path.join(DSH_HOME, 'bili-fuse.json')
+        let all = {}
+        try { all = JSON.parse(fs.readFileSync(fuseFile, 'utf8')) } catch {}
+        delete all[action]
+        fs.mkdirSync(path.dirname(fuseFile), { recursive: true })
+        fs.writeFileSync(fuseFile, JSON.stringify(all, null, 2) + '\n')
+        try { fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'), JSON.stringify({ at: new Date().toISOString(), kind: 'fuse-reset', target: action, note: `主人在面板解除了「${action}」的熔断` }) + '\n') } catch {}
+        json(res, 200, { ok: true, detail: `已解除「${action}」的熔断` })
+      } catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }) }
+    })
+
     // ── 在 Finder 中显示待审视频（2026-10-22 加）─────────────────────
     // 视频「发」是手动上传，这个按钮让老板一键定位文件。只允许队列里登记过的 file。
     route('exact', '/dsh-bili/api/video-reveal', async (req, res) => {
