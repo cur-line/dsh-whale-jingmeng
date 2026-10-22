@@ -319,6 +319,9 @@ window.__ModuleLoader__.load({
       ".jm-cv-spec{font-size:10.5px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto;font-variant-numeric:tabular-nums}",
       ".jm-cv-player{display:block;width:100%;max-height:420px;background:#000;aspect-ratio:16/9}",
       ".jm-cv-foot{padding:7px 13px;background:rgba(255,255,255,.03)}",
+      // 2026-10-22 加：视频播放降级/失败提示条
+      ".jm-cv-note{font-size:10.5px;line-height:1.6;color:var(--dsw-alias-label-tertiary);padding:5px 13px 7px;background:rgba(255,255,255,.03)}",
+      ".jm-cv-err{font-size:11px;line-height:1.7;color:var(--dsw-alias-state-error-primary);padding:7px 13px;background:rgba(248,81,73,.08)}",
       /* 回复：对话气泡 */
       ".jm-card-reply{padding:12px 14px;border-radius:12px;background:rgba(127,127,127,.055);border:.5px solid var(--dsw-alias-border-l1)}",
       ".jm-cr-line{display:flex;align-items:center;gap:8px;margin-bottom:6px}",
@@ -492,13 +495,18 @@ window.__ModuleLoader__.load({
       ".blw-navtab.on{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.14)}",
 
       /* ── 主面板页（侧栏点开）── */
-      ".jm-page{display:flex;flex-direction:column;gap:0;height:100%;min-height:520px}",
+      // 2026-10-22 修（故障①：滚到底后面的内容看不了）：min-height:520px 是祸根 ✗
+      //   窗口内容区矮于 520 时 page 被撑到 520，超出 .centerCol（overflow:hidden）的部分被永久剪掉
+      //   → body 内部能滚到底，但页面最底那段永远在视口外（实测 470px 容器被剪 50px）✗
+      //   现在 page 永远等于容器高，body 的 flex:1 + overflow-y:auto 全权负责滚动 ✓
+      ".jm-page{display:flex;flex-direction:column;gap:0;height:100%;min-height:0}",
       ".jm-page-tabs{display:flex;gap:2px;padding:0 0 0 2px;border-bottom:.5px solid var(--dsw-alias-border-l1);flex:0 0 auto}",
       ".jm-page-tab{position:relative;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;padding:11px 18px;cursor:pointer;font-family:inherit;margin-bottom:-.5px;transition:color .14s,border-color .14s;display:flex;align-items:center;gap:6px}",
       ".jm-page-tab:hover{color:var(--dsw-alias-label-primary)}",
       ".jm-page-tab.on{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary)}",
       ".jm-badge-dot{background:var(--dsw-alias-state-warn-primary);color:#1a1300;font-size:10px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px;display:grid;place-items:center;line-height:1}",
-      ".jm-page-body{padding:16px 18px;overflow-y:auto;flex:1;min-height:0}",
+      // 2026-10-22 顺手：overscroll-behavior:contain —— 内部滚动区滚到头不再把滚轮链给外层（防止整页跟着晃）
+      ".jm-page-body{padding:16px 18px;overflow-y:auto;flex:1;min-height:0;overscroll-behavior:contain}",
       ".jm-page-body .jm{border:none;border-radius:0;min-height:0}",
       ".jm-page-body .jm-side{display:none}",
 
@@ -844,7 +852,13 @@ window.__ModuleLoader__.load({
                   (x.platform === 'bili-video' || x.platform === 'xhs-video') && h("div", null,
                     h("div", { className: "blw-hint", style: { color: "var(--dsw-alias-label-primary)", marginTop: "4px" } }, `你要发（视频）· ${String(x.title ?? '')}`),
                     h("div", { className: "jm-vp-video" },
-                      x.cover ? h("img", { className: "jm-vp-cover", src: `file://${x.cover}`, alt: "" }) : null,
+                      // 2026-10-22 修：file:// 在 GUI 里必然加载失败（http 页面禁本地文件）✗ → 走 video-cover 接口 ✓
+                      x.id ? h("img", {
+                        className: "jm-vp-cover",
+                        src: `${API}/video-cover?id=${encodeURIComponent(String(x.id))}`,
+                        alt: "",
+                        onError: (e) => { e.currentTarget.style.visibility = "hidden" },
+                      }) : null,
                       h("div", { className: "jm-vp-vmeta" },
                         h("div", null, `${x.aspect ?? ''} · ${x.duration ?? '?'} 秒 · ${x.sizeMB ?? '?'} MB`),
                         x.note ? h("div", { className: "blw-hint" }, String(x.note)) : null,
@@ -1515,6 +1529,51 @@ window.__ModuleLoader__.load({
 
 
     // ══════════════════════════════════════════════════════════════════
+    // 审批视频播放器（2026-10-22 修，故障②）
+    //
+    // 根因两层：
+    //   ① 宿主（0.2.1-rc.2）对插件注册的 prefix 路由不生效 → /video-file/<id> 一律 404
+    //      → 改走 exact 路由（?id=xx），后端已双注册 ✓
+    //   ② 兜底：<video> 标签的请求万一拿不到凭据（不同入口对媒体请求的 cookie 行为不可控）
+    //      → onError 后用 fetch（自带同源凭据）整段拉 blob → objectURL 再播 ✓
+    // objectURL 在组件卸载时 revoke，不漏内存 ✓
+    // ══════════════════════════════════════════════════════════════════
+    function VideoPlayer({ id, cover }) {
+      const direct = `${API}/video-file?id=${encodeURIComponent(String(id ?? ""))}`;
+      const [src, setSrc] = useState(direct);
+      const [mode, setMode] = useState("direct");   // direct | loading | blob | error
+      const blobUrl = useRef(null);
+      const tried = useRef(false);
+      useEffect(() => () => {
+        if (blobUrl.current) { try { URL.revokeObjectURL(blobUrl.current) } catch {} blobUrl.current = null; }
+      }, []);
+      const fallback = async () => {
+        if (tried.current) return;                  // 只降级一次，防止 404 循环
+        tried.current = true;
+        setMode("loading");
+        try {
+          const r = await fetch(direct, { headers: { accept: "*/*" }, credentials: "same-origin" });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const blob = await r.blob();
+          const url = URL.createObjectURL(blob);
+          blobUrl.current = url;
+          setSrc(url); setMode("blob");
+        } catch (e) { setMode("error"); }
+      };
+      return h("div", null,
+        h("video", {
+          className: "jm-cv-player",
+          src,
+          poster: cover ? `${API}/video-cover?id=${encodeURIComponent(String(id ?? ""))}` : undefined,
+          controls: true, preload: "metadata", playsInline: true,
+          onError: fallback,
+        }),
+        mode === "loading" ? h("div", { className: "jm-cv-note" }, "直连播放被拦了，正在整段下载后再播（本地文件，几秒内好）…") : null,
+        mode === "blob" ? h("div", { className: "jm-cv-note" }, "已切换为整段下载播放 ✓ 拖动进度条请等下载完成") : null,
+        mode === "error" ? h("div", { className: "jm-cv-err" }, "视频接口读不到（可能插件还没重载，视频路由是 2026-10-21 深夜新加的）。重载插件后回来点刷新；文件在队列里不会丢。") : null);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // 审批视图 —— 她的产出要经你点头才发出去
     //
     // 三种状态：待审 / 已通过（待发布） / 已驳回（要重写）
@@ -1662,17 +1721,13 @@ window.__ModuleLoader__.load({
                   it.platform ? h("span", { className: "jm-plat-mini" }, it.platform) : null),
 
                 // ══ 视频：直接内嵌播放器（老板：要么给链接，要么直接放上来）══
+                // 2026-10-22：改用 VideoPlayer —— exact 路由 + blob 兜底（见组件注释）
                 isVideo ? h("div", { className: "jm-card-video" },
                   h("div", { className: "jm-cv-head" },
                     h("span", { className: "jm-cv-title" }, it.title || "未命名视频"),
                     h("span", { className: "jm-cv-spec" },
                       `${it.aspect || ""} · ${it.duration || "?"}s · ${it.sizeMB || "?"}MB`)),
-                  h("video", {
-                    className: "jm-cv-player",
-                    src: `${API}/video-file/${encodeURIComponent(it.id)}`,
-                    poster: it.cover ? `${API}/video-cover/${encodeURIComponent(it.id)}` : undefined,
-                    controls: true, preload: "metadata", playsInline: true,
-                  }),
+                  h(VideoPlayer, { id: it.id, cover: it.cover }),
                   h("div", { className: "jm-cv-foot" },
                     h("span", { className: "jm-meta" }, "↑ 点播放直接看，审完再点下面的「发」"))) : null,
 

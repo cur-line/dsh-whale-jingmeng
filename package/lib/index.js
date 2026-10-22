@@ -334,15 +334,20 @@ function isLoopbackReq(req) {
     const stripPlatform = (items) => items.map(({ platform, ...rest }) => rest)
     // ── 视频播放 / 封面（2026-10-21 老板要求：视频要能直接在面板里看）──────
     // 只允许播「待审视频队列里登记过的文件」，防止借这个接口读任意路径 ✓
-    route('prefix', '/dsh-bili/api/video-file/', async (req, res) => {
-      if (req.method !== 'GET' && req.method !== 'HEAD') { json(res, 405, { ok: false }); return }
-      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-file/'.length))
-      let item = null
+    // 2026-10-22 修（故障②：审批页视频播不出来）：
+    //   实测 DSH 宿主（0.2.1-rc.2）对插件注册的 prefix 路由不生效 ✗ ——
+    //   /dsh-bili/api/video-file/<id> 无论带不带凭据都 404（宿主级空响应），
+    //   而同一批注册的 exact 路由全部正常；宿主自己的 /api、/open-in-app/icon 前缀也一样 404。
+    //   → 同一 handler 双注册：exact（?id=xx）为主 ✓，prefix 保留等宿主修好仍可用 ✓
+    function readQueuedVideo(id) {
       try {
         const q = JSON.parse(fs.readFileSync(VIDEO_PENDING, 'utf8'))
         const arr = Array.isArray(q) ? q : (q?.items ?? q?.entries ?? [])
-        item = arr.find((e) => String(e?.id) === id)
-      } catch {}
+        return arr.find((e) => String(e?.id) === id) ?? null
+      } catch { return null }
+    }
+    async function serveVideoFile(req, res, id) {
+      let item = readQueuedVideo(id)
       if (!item?.file) { json(res, 404, { ok: false, error: '没找到这个视频' }); return }
       const real = path.resolve(String(item.file))
       // 白名单：必须真的在队列里且文件存在，且是视频扩展名
@@ -379,17 +384,24 @@ function isLoopbackReq(req) {
       })
       if (req.method === 'HEAD') { res.end(); return }
       fs.createReadStream(real).pipe(res)
+    }
+    // exact：/dsh-bili/api/video-file?id=xx（主路径 ✓ prefix 匹配在宿主里不生效）
+    route('exact', '/dsh-bili/api/video-file', async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') { json(res, 405, { ok: false }); return }
+      const id = String(new URL(req.url ?? '/', 'http://x').searchParams.get('id') ?? '')
+      if (!id) { json(res, 400, { ok: false, error: '需要 ?id=' }); return }
+      await serveVideoFile(req, res, id)
+    })
+    // prefix：/dsh-bili/api/video-file/<id>（兼容保留）
+    route('prefix', '/dsh-bili/api/video-file/', async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') { json(res, 405, { ok: false }); return }
+      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-file/'.length))
+      await serveVideoFile(req, res, id)
     })
 
     // 视频封面（同样只允许队列里登记的封面）
-    route('prefix', '/dsh-bili/api/video-cover/', async (req, res) => {
-      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-cover/'.length))
-      let item = null
-      try {
-        const q = JSON.parse(fs.readFileSync(VIDEO_PENDING, 'utf8'))
-        const arr = Array.isArray(q) ? q : (q?.items ?? q?.entries ?? [])
-        item = arr.find((e) => String(e?.id) === id)
-      } catch {}
+    async function serveVideoCover(req, res, id) {
+      const item = readQueuedVideo(id)
       const cov = item?.cover
       if (!cov) { json(res, 404, { ok: false }); return }
       try {
@@ -399,6 +411,15 @@ function isLoopbackReq(req) {
         res.writeHead(200, { 'Content-Type': ct, 'Content-Length': buf.length, 'Cache-Control': 'private, max-age=3600' })
         res.end(buf)
       } catch { json(res, 404, { ok: false, error: '封面不存在' }) }
+    }
+    route('exact', '/dsh-bili/api/video-cover', async (req, res) => {
+      const id = String(new URL(req.url ?? '/', 'http://x').searchParams.get('id') ?? '')
+      if (!id) { json(res, 400, { ok: false }); return }
+      await serveVideoCover(req, res, id)
+    })
+    route('prefix', '/dsh-bili/api/video-cover/', async (req, res) => {
+      const id = decodeURIComponent(String(req.url || '').split('?')[0].slice('/dsh-bili/api/video-cover/'.length))
+      await serveVideoCover(req, res, id)
     })
 
     route('exact', '/dsh-bili/api/pending', async (req, res) => {
