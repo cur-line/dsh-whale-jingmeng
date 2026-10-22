@@ -1613,7 +1613,7 @@ window.__ModuleLoader__.load({
         actionLock.current = true;
         setBusy(itemKey(it) + action); setMsg(""); setErr("");
         try {
-          const r = await fetch(`${API}/approvals/${action}`, {
+          const r = await fetch(action === "reveal" ? `${API}/video-reveal` : `${API}/approvals/${action}`, {
             method: "POST",
             headers: { "content-type": "application/json", accept: "application/json" },
             body: JSON.stringify({ id: it.id, kind: it.kind, ...(payload || {}) }),
@@ -1771,14 +1771,16 @@ window.__ModuleLoader__.load({
                       onChange: (e) => setEditing({ ...editing, text: e.target.value }),
                     })
                     : h("div", { className: "jm-appr-body" }, it.text)) : null,
-                isEditing && it.kind === "xhs-diary" ? h("input", { className: "jm-input", value: editing.title || "", placeholder: "笔记标题", maxLength: 20, onChange: (e) => setEditing({ ...editing, title: e.target.value }) }) : null,
-                isEditing
+                // 2026-10-22 修：日记分支上面已经画过编辑框，这里只管非日记类，
+                // 否则编辑日记时出现两个 textarea（改了一个另一个不动 → 看起来"点了没反应"）
+                isEditing && !isDiary
                   ? h("textarea", {
                     className: "jm-appr-edit",
-                    value: editing.text, maxLength: it.maxChars || (it.kind === "xhs-diary" ? 1000 : 500),
+                    value: editing.text, maxLength: it.maxChars || 500,
                     onChange: (e) => setEditing({ ...editing, text: e.target.value }),
                   })
-                  : h("div", { className: "jm-appr-body" }, it.text),
+                  : (!isDiary && !isVideo && !isReply && !isDynamic && !isNote
+                    ? h("div", { className: "jm-appr-body" }, it.text) : null),
 
                 isRejecting
                   ? h("div", { className: "jm-reject-box" },
@@ -1819,7 +1821,24 @@ window.__ModuleLoader__.load({
                     }, "不通过"),
                   ].filter(Boolean) : null,
 
-                  it.status === "approved" ? h("button", {
+                  // 2026-10-22 修"点了永远报错"：
+                  //  · 日记已不发平台 → 按钮改成「存档」（publish 现在就是存档，不再要 dynId）
+                  //  · 视频上传接口没接 → 「在 Finder 显示」+「我已手动发出」两个动作，不再假装能上传
+                  it.status === "approved" && isDiary ? h("button", {
+                    className: "jm-btn", disabled: !!busy || !!editing,
+                    onClick: () => act(it, "publish"),
+                  }, busy === itemKey(it) + "publish" ? "存档中…" : "存档（不发平台）") : null,
+                  it.status === "approved" && isVideo ? [
+                    h("button", {
+                      key: "finder", className: "jm-btn jm-btn-ghost", disabled: !!busy,
+                      onClick: () => act(it, "reveal"),
+                    }, "在 Finder 中显示"),
+                    h("button", {
+                      key: "manual", className: "jm-btn", disabled: !!busy || !!editing,
+                      onClick: () => act(it, "publish"),
+                    }, busy === itemKey(it) + "publish" ? "处理中…" : "我已手动发出，划掉这条"),
+                  ] : null,
+                  it.status === "approved" && !isDiary && !isVideo ? h("button", {
                     className: "jm-btn", disabled: !!busy || !!editing,
                     onClick: () => act(it, "publish"),
                   }, busy === itemKey(it) + "publish" ? "发布中…" : "现在发布") : null,

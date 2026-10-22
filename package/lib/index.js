@@ -671,6 +671,29 @@ function isLoopbackReq(req) {
       }
     })
 
+    // ── 在 Finder 中显示待审视频（2026-10-22 加）─────────────────────
+    // 视频「发」是手动上传，这个按钮让老板一键定位文件。只允许队列里登记过的 file。
+    route('exact', '/dsh-bili/api/video-reveal', async (req, res) => {
+      if (req.method !== 'POST') { json(res, 405, { ok: false }); return }
+      try {
+        const body = JSON.parse(await readBody(req) || '{}')
+        const id = String(body.id || '')
+        let item = null
+        try {
+          const q = JSON.parse(fs.readFileSync(VIDEO_PENDING, 'utf8'))
+          const arr = Array.isArray(q) ? q : (q?.items ?? [])
+          item = arr.find((e) => String(e?.id) === id)
+        } catch {}
+        if (!item?.file) { json(res, 404, { ok: false, error: '没找到这个视频' }); return }
+        const real = path.resolve(String(item.file))
+        if (!fs.existsSync(real)) { json(res, 404, { ok: false, error: '文件不存在：' + real }); return }
+        const bin = process.platform === 'darwin' ? 'open' : (process.platform === 'win32' ? 'explorer' : 'xdg-open')
+        const args2 = process.platform === 'darwin' ? ['-R', real] : [real]
+        await new Promise((resolve) => execFile(bin, args2, { timeout: 10000, windowsHide: true }, () => resolve()))
+        json(res, 200, { ok: true, detail: '已在 Finder 中定位：' + path.basename(real) })
+      } catch (error) { approvalError(res, error) }
+    })
+
     // ── 审批（2026-10-20）──────────────────────────────────────────
     // 她的产出（日记 / 小红书笔记）先落队列，**必须经主人点头才发**。
     // 队列文件与命令行 daily-diary.mjs 共用同一份，两边操作互不打架。
@@ -882,16 +905,27 @@ function isLoopbackReq(req) {
             : [path.join(toolDir, 'bili.mjs'), 'daily-diary', 'publish', target.item.id]
         }
         if (!args) {
-          // 视频：暂无上传接口 → 明确告知，不假装成功
-          json(res, 501, { ok: false, error: '视频上传接口还没接。文件已就绪，可手动上传：' + String(it.file || '') })
+          // 2026-10-22 改：视频上传接口没接（B站投稿接口有风控签名，硬闯有封号风险）。
+          // 老板手动上传后点「我已手动发出，划掉这条」→ 这里确认出队并记事件，不再返回 501。
+          const left = readEntries(target.file, target.array).filter(e => String(e.id) !== String(target.item.id))
+          writeEntries(target.file, left, target.array)
+          try { fs.appendFileSync(path.join(DSH_HOME, 'whale-log.jsonl'), JSON.stringify({ at: new Date().toISOString(), kind: 'video-published-manual', target: String(it.id), note: `主人确认已手动发出：${String(it.title || '')}` }) + '\n') } catch {}
+          json(res, 200, { ok: true, detail: '已划掉这条视频（你确认手动发出）' })
           return
         }
         const result = await new Promise(resolve => execFile(NODE_EXE, args, { timeout: target.array ? 360000 : 180000, windowsHide: true }, (error, stdout, stderr) => resolve({ error, stdout: String(stdout || ''), stderr: String(stderr || '') })))
         const entry = readEntries(target.file, target.array).find(e => e.id === target.item.id)
         const isLegacy = !target.reply && !['bili-dynamic','xhs-note','bili-video'].includes(target.kind)
         if (isLegacy) {
-          const remoteId = target.array ? entry?.noteId : entry?.dynId
-          if (result.error || entry?.status !== 'published' || !remoteId) throw new Error((result.stderr || result.error?.message || '发布未确认成功，稿件仍保留，请先核实结果').slice(-500))
+          // 2026-10-22 修「点了永远报错」：B站日记自 10-21 起只存档不发平台（老板定的），
+          // 永远不会有 dynId —— 旧的 !remoteId 判定让每次「现在发布/存档」都报错 ✗
+          const isBiliDiary = target.kind === 'diary'
+          if (isBiliDiary) {
+            if (result.error || entry?.status !== 'published') throw new Error((result.stderr || result.error?.message || '存档未成功，稿件保留').slice(-500))
+          } else {
+            const remoteId = entry?.noteId
+            if (result.error || entry?.status !== 'published' || !remoteId) throw new Error((result.stderr || result.error?.message || '发布未确认成功，稿件仍保留，请先核实结果').slice(-500))
+          }
         } else {
           // 五类外发：命令自己带硬闸，成功就出队；失败保留草稿
           if (result.error) throw new Error((result.stderr || result.error?.message || '发送失败，草稿保留').slice(-500))
