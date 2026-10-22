@@ -358,6 +358,24 @@ const snapshot = {
       }))
   })(),
 
+  // ── 今日作息（2026-10-22 加）：面板显示「她今天什么时候露面」────────────
+  // 数据源是 whale-night.json（调度器每 tick 会刷新），只读不改。
+  schedule: (() => {
+    try {
+      const st = JSON.parse(fs.readFileSync(path.join(DSH, 'whale-night.json'), 'utf8'))
+      const slots = Array.isArray(st.slots) ? st.slots : []
+      const today = new Date().toLocaleDateString('sv-SE')
+      if (st.date !== today || !slots.length) return { date: st.date ?? null, slots: [], wakes: st.wakes ?? 0, total: 0 }
+      return {
+        date: st.date,
+        wakes: Number(st.wakes ?? 0),
+        total: slots.length,
+        next: slots.filter((x) => x.status === 'pending').sort((a, b) => a.at - b.at)[0] ?? null,
+        slots: slots.map((x) => ({ key: x.key, label: x.label, at: x.atText, status: x.status })),
+      }
+    } catch { return { date: null, slots: [], wakes: 0, total: 0 } }
+  })(),
+
   // ── 待审汇总（2026-10-21 加）：控制台第一眼看到"几件事等你点头" ─────────
   approvals: (() => {
     const readN = (file, array = false) => {

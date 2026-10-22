@@ -85,7 +85,119 @@ const MAX_WAKES = Math.min(
 const st = load(STATE, {})
 const wakesToday = (s) => (s.date === today() ? Number(s.wakes ?? 0) : 0)
 
+// ══════════════════════════════════════════════════════════════════════
+// 时辰制（2026-10-22 老板：「让小宠物更活泼一些，每天多冒泡几次」）
+//
+// 12 个时辰任选，每个时辰随机抽一个时点醒一次；每个时辰还有 windowChance
+// 的概率「今天这个点不想去」—— 真人不会每天准点打卡 ✓
+//
+// 与旧 windows 模式并存：配置里有 night.shichen（非空数组）→ 走时辰制；
+// 没有 → 原样走 windows（老配置不动，升级不炸）。
+// ══════════════════════════════════════════════════════════════════════
+const SHICHEN = [
+  { key: '子', start: 23 * 60, end: 25 * 60, label: '子时 23–01' },
+  { key: '丑', start: 1 * 60, end: 3 * 60, label: '丑时 01–03' },
+  { key: '寅', start: 3 * 60, end: 5 * 60, label: '寅时 03–05' },
+  { key: '卯', start: 5 * 60, end: 7 * 60, label: '卯时 05–07' },
+  { key: '辰', start: 7 * 60, end: 9 * 60, label: '辰时 07–09' },
+  { key: '巳', start: 9 * 60, end: 11 * 60, label: '巳时 09–11' },
+  { key: '午', start: 11 * 60, end: 13 * 60, label: '午时 11–13' },
+  { key: '未', start: 13 * 60, end: 15 * 60, label: '未时 13–15' },
+  { key: '申', start: 15 * 60, end: 17 * 60, label: '申时 15–17' },
+  { key: '酉', start: 17 * 60, end: 19 * 60, label: '酉时 17–19' },
+  { key: '戌', start: 19 * 60, end: 21 * 60, label: '戌时 19–21' },
+  { key: '亥', start: 21 * 60, end: 23 * 60, label: '亥时 21–23' },
+]
+// 默认 8 个时辰（7:00–23:00 之间均匀铺开）—— 比原来 3 窗口 × 2 次 = 6 次更活泼
+const DEFAULT_SHICHEN = ['辰', '巳', '午', '未', '申', '酉', '戌', '亥']
+
+const shichenKeys = () => {
+  const list = Array.isArray(cfg.shichen) && cfg.shichen.length ? cfg.shichen : null
+  return list ? list.filter((k) => SHICHEN.some((s) => s.key === k)) : null
+}
+const SHICHEN_ON = shichenKeys()
+const WINDOW_CHANCE = Math.min(1, Math.max(0, Number(cfg.windowChance ?? 0.85)))
+
+/** 今天整天的时辰计划：每个时辰一个随机时点 + 一开始就掷好「去/不去」 */
+function buildSlots() {
+  const keys = SHICHEN_ON ?? DEFAULT_SHICHEN
+  return keys.map((key) => {
+    const sc = SHICHEN.find((s) => s.key === key)
+    const start = sc.start
+    const end = sc.end
+    // 留出最后 20 分钟让这一轮刷完；最早在开场 3 分钟后
+    const at = Math.round(start + 3 + Math.random() * Math.max(1, end - 20 - (start + 3)))
+    const skip = Math.random() >= WINDOW_CHANCE
+    return {
+      key: sc.key, label: sc.label, start, end,
+      at: at >= 1440 ? at - 1440 : at,
+      atText: hhmm(at >= 1440 ? at - 1440 : at),
+      status: skip ? 'skipped' : 'pending',
+      why: skip ? '掷骰子掷到了「这个点不想去」' : null,
+    }
+  }).sort((a, b) => a.at - b.at)
+}
+
+/** 时辰制的主规划：返回和旧逻辑同形状的 plan（scheduler 不用改） */
+function makePlanShichen() {
+  const now = nowMin()
+  const done = wakesToday(st)
+
+  // ① 取今天的计划；跨天/没有就新建
+  let slots = (st?.date === today() && Array.isArray(st.slots) && st.slots.length) ? st.slots.map((x) => ({ ...x })) : buildSlots()
+
+  // ② 上一次那格真的醒了 → 标记 done（用 st.woke 判断，叫醒失败不会被吃掉 ✓）
+  if (st?.date === today() && st?.slotKey && st?.woke === true) {
+    const hit = slots.find((x) => x.key === st.slotKey)
+    if (hit && hit.status !== 'done') hit.status = 'done'
+  }
+
+  // ③ 过完还没醒的 → missed（真人错过也就错过了）
+  for (const x of slots) if (x.status === 'pending' && now > x.end) x.status = 'missed'
+
+  const base = { date: today(), wakes: done, slots }
+  const pending = slots.filter((x) => x.status === 'pending').sort((a, b) => a.at - b.at)
+
+  // ④ 有已到点的 → 立刻醒（一次只醒一个）
+  const due = pending.find((x) => now >= x.at)
+  if (due) {
+    const wokeCount = slots.filter((x) => x.status === 'done').length
+    return {
+      ...base, action: 'wake', fired: false, woke: false, done: false,
+      at: due.at, atText: due.atText, window: due.label, slotKey: due.key,
+      withinWindow: `第 ${wokeCount + 1}/${slots.length} 次`,
+      roll: 'watch', maxVideos: cfg.maxVideos ?? 5, createdAt: new Date().toISOString(),
+    }
+  }
+
+  // ⑤ 还有没到点的 → 报下一个时点等它（scheduler 会等到 at 再叫）
+  const next = pending[0]
+  if (next) {
+    const wokeCount = slots.filter((x) => x.status === 'done').length
+    return {
+      ...base, action: 'wake', fired: false, woke: false, done: false,
+      at: next.at, atText: next.atText, window: next.label, slotKey: next.key,
+      withinWindow: `第 ${wokeCount + 1}/${slots.length} 次（还没到点）`,
+      roll: 'watch', maxVideos: cfg.maxVideos ?? 5, createdAt: new Date().toISOString(),
+    }
+  }
+
+  // ⑥ 全过完了：一次都没去 → 走「不看那晚」让她写为什么；否则收工
+  const anyDone = slots.some((x) => x.status === 'done')
+  if (!anyDone && !st?.slotsSkippedReported) {
+    return {
+      ...base, action: 'skip', fired: false, woke: false, done: false, slotsSkippedReported: true,
+      at: now, atText: hhmm(now), window: '今天所有时辰',
+      reason: '今天每个时辰都掷到了「不想去」—— 一次都没刷',
+    }
+  }
+  return { ...base, action: 'done', done: true, fired: true, woke: false, reason: `今天醒了 ${done} 次（共 ${slots.length} 个时辰）` }
+}
+
+
 function makePlan() {
+  // 时辰制优先（2026-10-22）：配置了 night.shichen 就走新逻辑，否则原样走窗口
+  if (SHICHEN_ON) return makePlanShichen()
   const now = nowMin()
   const done = wakesToday(st)
   // 2026-10-20：这一夜已经处理完（含"不看"已投递）→ 不再重排 ✓

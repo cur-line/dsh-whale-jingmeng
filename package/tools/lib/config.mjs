@@ -39,7 +39,18 @@ export const DEFAULTS = {
   // 倾听（2026-10-18 补默认值，与设置页对齐）：评论区 + 直播间
   listen: { comment: true, commentIntervalSec: 300, scope: 'both', oncePerPerson: false, allDay: false, dm: false, live: false, liveRoom: '', liveScope: 'owner' },
   // 作息：windows[] = 每天允许醒来的时段（每个窗口 = 一次机会）；maxWakesPerDay 缺省 = 窗口数（硬上限 3）
-  night: { windows: [{ start: '20:00', end: '24:00', wakes: 1 }], skipChance: 0.3, maxVideos: 5 },
+  // 作息（2026-10-22 老板：让小宠物更活泼、每天多冒泡几次）
+  // shichen 非空 → 走时辰制：12 个时辰任选，每个时辰随机一个时点醒一次；
+  // windowChance = 每个时辰「今天想不想去」的概率（真人不会每天准点打卡）
+  // 默认 8 个时辰（07:00–23:00 铺开）= 一天最多露面 8 次，比原来 6 次更活泼
+  night: {
+    shichen: ['辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+    windowChance: 0.85,
+    windows: [{ start: '20:00', end: '24:00', wakes: 1 }],
+    skipChance: 0.3,
+    maxVideos: 5,
+    maxWakesPerDay: 10,
+  },
   // 小红书（2026-10-20 加）：与 B 站并行的第二条腿。
   // 关掉很直接：enabled:false → 调度器整段不提；但命令层仍可手动跑（方便排查）
   xhs: {

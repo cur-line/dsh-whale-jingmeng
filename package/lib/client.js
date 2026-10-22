@@ -357,6 +357,23 @@ window.__ModuleLoader__.load({
       ".jm-appr-group:first-child{margin-top:0}",
       ".jm-appr-group>span:first-child{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.02em}",
       ".jm-appr-group-n{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}",
+      /* 今日露面条（2026-10-22）*/
+      /* 时辰选择器（2026-10-22）*/
+      ".blw-shichen{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}",
+      ".blw-sc{width:38px;height:34px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l2);background:rgba(127,127,127,.06);color:var(--dsw-alias-label-secondary);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}",
+      ".blw-sc:hover{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}",
+      ".blw-sc.on{background:var(--dsw-alias-brand-primary);border-color:transparent;color:#fff}",
+      ".jm-sched{display:flex;gap:7px;flex-wrap:wrap}",
+      ".jm-sched-slot{flex:1 1 74px;min-width:74px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 6px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l1);background:rgba(127,127,127,.045)}",
+      ".jm-ss-key{font-size:11px;font-weight:750;color:var(--dsw-alias-label-primary)}",
+      ".jm-ss-at{font-size:10.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}",
+      ".jm-ss-st{font-size:9.5px;color:var(--dsw-alias-label-tertiary)}",
+      ".jm-sched-slot.s-done{background:rgba(63,199,245,.13);border-color:rgba(63,199,245,.4)}",
+      ".jm-sched-slot.s-done .jm-ss-st{color:var(--dsw-alias-brand-primary)}",
+      ".jm-sched-slot.s-pending{border-color:rgba(227,179,65,.45);background:rgba(227,179,65,.08)}",
+      ".jm-sched-slot.s-pending .jm-ss-st{color:var(--dsw-alias-state-warn-primary)}",
+      ".jm-sched-slot.s-skip{opacity:.55}",
+      ".jm-sched-slot.s-miss{opacity:.35}",
       ".jm-pending-bar{display:flex;align-items:center;gap:11px;padding:13px 18px;border-radius:12px;cursor:pointer;background:linear-gradient(100deg,rgba(227,179,65,.14),rgba(63,199,245,.10));border:.5px solid rgba(227,179,65,.42);transition:border-color .15s}",
       ".jm-pending-bar:hover{border-color:rgba(227,179,65,.75)}",
       ".jm-pb-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary);box-shadow:0 0 12px var(--dsw-alias-state-warn-primary);flex:0 0 auto}",
@@ -688,6 +705,60 @@ window.__ModuleLoader__.load({
     //   ②  17:00 – 18:00   （醒来 1 次）   [x]
     //   [ + 添加窗口 ]
     //   每个窗口自带"醒来几次"；保存时把总和写回 night.maxWakesPerDay（工具链读它 ✓）
+    // ── 时辰选择器（2026-10-22 老板：「让她自由选时间、自己醒来」）──────────
+    // 12 个时辰点选，选中几个 = 一天最多露面几次（每个时辰随机挑一个时点）
+    const SHICHEN_ALL = [
+      ['子', '子时 23–01'], ['丑', '丑时 01–03'], ['寅', '寅时 03–05'], ['卯', '卯时 05–07'],
+      ['辰', '辰时 07–09'], ['巳', '巳时 09–11'], ['午', '午时 11–13'], ['未', '未时 13–15'],
+      ['申', '申时 15–17'], ['酉', '酉时 17–19'], ['戌', '戌时 19–21'], ['亥', '亥时 21–23'],
+    ];
+    function ShichenEditor({ cfg, set }) {
+      const cur = Array.isArray(getPath(cfg, ["night", "shichen"])) ? getPath(cfg, ["night", "shichen"]) : [];
+      const chance = Number(getPath(cfg, ["night", "windowChance"]) ?? 0.85);
+      const toggle = (k) => {
+        const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+        // 按 12 时辰顺序排好，方便看
+        next.sort((a, b) => SHICHEN_ALL.findIndex((x) => x[0] === a) - SHICHEN_ALL.findIndex((x) => x[0] === b));
+        set(["night", "shichen"], next);
+      };
+      return h("div", null,
+        h("div", { className: "blw-group" }, "作息（时辰制）"),
+        h("div", { className: "blw-rows" },
+          h("div", { className: "blw-row" },
+            h("div", null,
+              h("div", { className: "blw-label" }, `她一天露面几次：${cur.length} 次`),
+              h("div", { className: "blw-hint" },
+                "点亮的时辰 = 她会在这个时辰里随机挑一个时间自己醒来。挑得越多越活泼 ✓"
+                + (cur.length ? "" : "（一个都没选 → 退回旧的「时间窗」模式）"))),
+            null),
+          h("div", { className: "blw-shichen" },
+            SHICHEN_ALL.map(([k, label]) =>
+              h("button", {
+                key: k, title: label,
+                className: `blw-sc${cur.includes(k) ? " on" : ""}`,
+                onClick: () => toggle(k),
+              }, k))),
+          h("div", { className: "blw-row" },
+            h("div", null,
+              h("div", { className: "blw-label" }, "每个时辰真的去的概率"),
+              h("div", { className: "blw-hint" },
+                `现在 ${Math.round(chance * 100)}%：剩下那 ${Math.round((1 - chance) * 100)}% 她会「今天这个点不想去」—— 真人不会每天准点打卡 ✓`)),
+            h("input", {
+              className: "blw-input", style: { width: "80px", minWidth: "80px" }, type: "number",
+              min: 30, max: 100, value: Math.round(chance * 100),
+              onChange: (e) => set(["night", "windowChance"], Math.min(1, Math.max(0.3, Number(e.target.value) / 100))),
+            })),
+          h("div", { className: "blw-row" },
+            h("div", null,
+              h("div", { className: "blw-label" }, "每轮看几个视频"),
+              h("div", { className: "blw-hint" }, "一轮是一段「刷」：2–5 个，看到 45%–95%，偶尔扫几秒划走")),
+            h("input", {
+              className: "blw-input", style: { width: "80px", minWidth: "80px" }, type: "number",
+              min: 1, max: 10, value: Number(getPath(cfg, ["night", "maxVideos"]) ?? 5),
+              onChange: (e) => set(["night", "maxVideos"], Math.min(10, Math.max(1, Number(e.target.value)))),
+            }))));
+    }
+
     const NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
     function WindowsEditor({ cfg, set }) {
       const wins = getPath(cfg, ["night", "windows"]);
@@ -1367,6 +1438,34 @@ window.__ModuleLoader__.load({
           h("span", { className: "jm-pb-go" }, "去审批 →"));
       })();
 
+      // 今日露面条（2026-10-22 老板：「让她更活泼，每天多冒泡几次」）
+      // 8 个时辰一览：已露面 / 待露面 / 今天不想去 / 错过了
+      const scheduleCard = (() => {
+        const sc = d.schedule || {};
+        const slots = sc.slots || [];
+        if (!slots.length) return null;
+        const ST = {
+          done: { t: "已露面", cls: "s-done" },
+          pending: { t: "待露面", cls: "s-pending" },
+          skipped: { t: "不想去", cls: "s-skip" },
+          missed: { t: "错过", cls: "s-miss" },
+        };
+        const doneN = slots.filter((x) => x.status === "done").length;
+        return h("div", { className: "jm-panel" },
+          h("div", { className: "jm-panel-h" },
+            h("span", null, "今天她什么时候露面"),
+            h("span", { className: "jm-meta" },
+              `${doneN}/${sc.total || slots.length} 次${sc.next ? ` · 下一次 ${sc.next.atText}` : ""}`)),
+          h("div", { className: "jm-sched" },
+            slots.map((x, i) => {
+              const st = ST[x.status] || { t: x.status, cls: "" };
+              return h("div", { key: i, className: `jm-sched-slot ${st.cls}`, title: `${x.label} · ${x.at} · ${st.t}` },
+                h("span", { className: "jm-ss-key" }, String(x.key || "").slice(0, 1)),
+                h("span", { className: "jm-ss-at" }, x.at || ""),
+                h("span", { className: "jm-ss-st" }, st.t));
+            })));
+      })();
+
       // ── 控制台重排（2026-10-21 老板要求：重新优化）──────────────────
       // 逻辑：① 先看"有事要做"（待审）→ ② 她现在什么状态 → ③ 她今天产出了什么
       //       → ④ 她看过/收藏了什么 → ⑤ 系统健康。
@@ -1376,6 +1475,7 @@ window.__ModuleLoader__.load({
         // ② 她现在什么状态
         moodCard,
         cards,
+        scheduleCard,
         // ③ 她今天产出了什么
         diaryHomeCard,
         h("div", { className: "jm-split" },
@@ -2031,7 +2131,7 @@ window.__ModuleLoader__.load({
       // 渲染顺序（2026-10-18 主人定）：… → 口味 → 【分享评论 + 全天监听】→ 日记与推送 → …
       const renderGroup = (g) => h("div", { key: g.name },
         h("div", { className: "blw-group" }, g.name),
-        g.name === "作息" ? h(WindowsEditor, { cfg, set }) : null,
+        g.name === "作息" ? h("div", null, h(ShichenEditor, { cfg, set }), h(WindowsEditor, { cfg, set })) : null,
         h("div", { className: "blw-rows" }, g.fields.map((f) => h(Row, { key: f.path.join("."), f, cfg, set }))));
       const cut = Math.max(0, groups.findIndex((g) => g.name === "口味") + 1) || groups.length;
       const groupsTop = groups.slice(0, cut);
