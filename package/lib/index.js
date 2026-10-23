@@ -787,17 +787,46 @@ function isLoopbackReq(req) {
       for (const descriptor of approvalQueues.filter(q => !body.kind || q.kind === body.kind)) {
         const entries = readEntries(descriptor.file, descriptor.array)
         const item = entries.find(e => e?.id === id)
-        if (item) matches.push({ ...descriptor, entries, item })
+        if (item) {
+          // 2026-10-23 修「点了完全没反应/报错」：视频/回复队列的条目是新写的，
+          // 没有 status 字段，而 approve/reject/edit/publish 都拿 item.status 判状态 →
+          // undefined 不在任何允许列表里 → 一律抛「当前状态不允许修改」✗
+          // 这里补默认值（写回 live 对象，后面改 status 能持久化 ✓）
+          if (item.status === undefined) item.status = 'pending'
+          matches.push({ ...descriptor, entries, item })
+        }
       }
       if (!matches.length) throw Object.assign(new Error('没找到这条稿件'), { status: 404 })
       if (matches.length > 1) throw Object.assign(new Error('稿件ID重名，请传 kind 选择平台'), { status: 409 })
       return matches[0]
     }
+    // 各队列条目字段不同（视频没有 text、回复用 message、图文用 title/content）——
+    // 统一取「正文」的口径，审批校验/展示/编辑都用这一个函数，避免三处对不上 ✗
+    const itemBody = (target, item) => {
+      if (target.reply) return String(item.message ?? '')
+      if (target.video) return String(item.note ?? item.title ?? '')
+      if (target.array) return String(item.content ?? '')
+      return String(item.text ?? item.content ?? '')
+    }
+    const itemTitle = (target, item) => String(item.title ?? '')
+
     function validateApproval(target, item, images = false) {
-      const text = String(target.array ? item.content ?? '' : item.text ?? '')
+      const text = itemBody(target, item)
+      if (target.video) {
+        // 视频：正文是备注，真正要校验的是文件在不在
+        if (!item.file) throw Object.assign(new Error('视频文件没登记'), { status: 400 })
+        try { if (!fs.existsSync(String(item.file))) throw Object.assign(new Error('视频文件不存在'), { status: 400 }) }
+        catch (e) { if (e.status) throw e }
+        if (text.length > target.maxChars) throw Object.assign(new Error(`备注需1–${target.maxChars}字`), { status: 400 })
+        return
+      }
+      if (target.reply) {
+        if (!text.trim() || text.length > target.maxChars) throw Object.assign(new Error(`回复正文需1–${target.maxChars}字`), { status: 400 })
+        return
+      }
       if (!text.trim() || text.length > target.maxChars) throw Object.assign(new Error(`正文需1–${target.maxChars}字`), { status: 400 })
       if (target.array) {
-        const title = String(item.title || '').trim()
+        const title = itemTitle(target, item).trim()
         if (!title || title.length > 20) throw Object.assign(new Error('小红书标题需1–20字'), { status: 400 })
         if (images) {
           if (!Array.isArray(item.images) || item.images.length < 1 || item.images.length > 18) throw Object.assign(new Error('小红书图文需要1–18张图片'), { status: 400 })
@@ -869,9 +898,15 @@ function isLoopbackReq(req) {
           detail = '已驳回，原因已保存供下轮写作参考'
         } else {
           if (typeof body.text !== 'string' || (body.title !== undefined && typeof body.title !== 'string')) throw Object.assign(new Error('正文和标题必须是文本'), { status: 400 })
-          const updated = { ...item, ...(target.array ? { content: String(body.text ?? ''), title: String(body.title ?? item.title ?? '') } : { text: String(body.text ?? '') }) }
+          // 2026-10-23：编辑也按队列类型落字段 —— 不然回复的编辑写进 item.text，
+          // 而 itemBody 读的是 item.message → 改了半天没生效 ✗
+          const patch = target.reply ? { message: String(body.text ?? '') }
+            : target.video ? { note: String(body.text ?? '') }
+            : target.array ? { content: String(body.text ?? ''), title: String(body.title ?? item.title ?? '') }
+            : { text: String(body.text ?? '') }
+          const updated = { ...item, ...patch }
           validateApproval(target, updated)
-          Object.assign(item, updated, { chars: String(body.text ?? '').length, status: 'pending', editedAt: new Date().toISOString() })
+          Object.assign(item, updated, { chars: itemBody(target, updated).length, status: 'pending', editedAt: new Date().toISOString() })
           delete item.approvedAt; delete item.reason; delete item.rejectedAt; delete item.rewriteQueuedAt; delete item.rewriteRequestId
           detail = '已保存修改，需要重新审核'
         }
